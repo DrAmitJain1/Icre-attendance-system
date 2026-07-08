@@ -211,9 +211,9 @@ export const SuperAdminPanel: React.FC = () => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div className="sa-page">
       {/* Title */}
-      <div>
+      <div className="sa-heading">
         <h2>Super Admin Administration</h2>
         <p className="subtitle" style={{ marginBottom: 0 }}>
           Manage Principal credentials, staff lists, and subjects curriculum catalogues.
@@ -225,7 +225,6 @@ export const SuperAdminPanel: React.FC = () => {
         <button
           className={`nav-btn ${activeTab === "principals" ? "active" : ""}`}
           onClick={() => setActiveTab("principals")}
-          style={{ padding: "0.75rem 1.5rem" }}
         >
           <ShieldCheck size={18} />
           <span>Manage Principals</span>
@@ -233,7 +232,6 @@ export const SuperAdminPanel: React.FC = () => {
         <button
           className={`nav-btn ${activeTab === "staff" ? "active" : ""}`}
           onClick={() => setActiveTab("staff")}
-          style={{ padding: "0.75rem 1.5rem" }}
         >
           <Users size={18} />
           <span>Manage Staff</span>
@@ -241,7 +239,6 @@ export const SuperAdminPanel: React.FC = () => {
         <button
           className={`nav-btn ${activeTab === "subjects" ? "active" : ""}`}
           onClick={() => setActiveTab("subjects")}
-          style={{ padding: "0.75rem 1.5rem" }}
         >
           <BookOpen size={18} />
           <span>Manage Subjects</span>
@@ -252,15 +249,15 @@ export const SuperAdminPanel: React.FC = () => {
       {activeTab === "principals" && (
         <div className="admin-grid">
           {/* Create Form */}
-          <div className="glass-card" style={{ padding: "2rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <UserPlus size={18} style={{ color: "var(--accent-blue)" }} />
+          <div className="glass-card">
+            <h3 className="sa-card-title">
+              <UserPlus size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
               <span>Create Principal Account</span>
             </h3>
-            {pError && <div style={{ color: "#ef4444", fontSize: "0.85rem", marginBottom: "1rem" }}>{pError}</div>}
-            {pSuccess && <div style={{ color: "#10b981", fontSize: "0.85rem", marginBottom: "1rem" }}>Principal created successfully!</div>}
-            
-            <form onSubmit={handleAddPrincipal} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {pError && <div className="sa-msg sa-msg-error">{pError}</div>}
+            {pSuccess && <div className="sa-msg sa-msg-success">Principal created successfully!</div>}
+
+            <form onSubmit={handleAddPrincipal} className="sa-form">
               <div className="form-group">
                 <label>Principal Name</label>
                 <input type="text" value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Dr. Ranjeet Powar" required />
@@ -273,15 +270,15 @@ export const SuperAdminPanel: React.FC = () => {
                 <label>Sign-in Password</label>
                 <input type="password" value={pPassword} onChange={(e) => setPPassword(e.target.value)} placeholder="Min 6 characters" required />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ width: "100%", marginTop: "0.5rem" }}>
+              <button type="submit" className="btn btn-primary sa-submit-btn">
                 Create Account
               </button>
             </form>
           </div>
 
           {/* List Table */}
-          <div className="glass-card" style={{ padding: "2rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.25rem" }}>Registered Principal Accounts</h3>
+          <div className="glass-card">
+            <h3 className="sa-card-title sa-card-title-plain">Registered Principal Accounts</h3>
             <div className="table-wrapper">
               <table>
                 <thead>
@@ -294,22 +291,21 @@ export const SuperAdminPanel: React.FC = () => {
                 </thead>
                 <tbody>
                   {loading && principalsList.length === 0 ? (
-                    <tr><td colSpan={4} style={{ textAlign: "center", padding: "2rem" }}>Loading accounts...</td></tr>
+                    <tr><td colSpan={4} className="sa-td-center">Loading accounts...</td></tr>
                   ) : principalsList.length === 0 ? (
-                    <tr><td colSpan={4} style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>No Principal accounts found.</td></tr>
+                    <tr><td colSpan={4} className="sa-td-center sa-td-muted">No Principal accounts found.</td></tr>
                   ) : (
                     principalsList.map((p) => (
                       <tr key={p.id}>
-                        <td style={{ fontWeight: 600 }}>{p.name}</td>
-                        <td style={{ color: "var(--text-secondary)" }}>{p.email}</td>
-                        <td style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
+                        <td className="sa-td-bold">{p.name}</td>
+                        <td className="sa-td-secondary">{p.email}</td>
+                        <td className="sa-td-credential">
                           Pass: {p.password ? "••••••" : "Auth Managed"}
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <button
                             onClick={() => handleDeletePrincipal(p.id!, p.name)}
-                            className="btn btn-danger"
-                            style={{ minHeight: "36px", height: "36px", padding: "0 0.75rem" }}
+                            className="btn btn-danger sa-icon-btn"
                             title="Delete Account"
                           >
                             <Trash2 size={16} />
@@ -329,15 +325,15 @@ export const SuperAdminPanel: React.FC = () => {
       {activeTab === "staff" && (
         <div className="admin-grid">
           {/* Create Form */}
-          <div className="glass-card" style={{ padding: "2rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <UserPlus size={18} style={{ color: "var(--accent-blue)" }} />
+          <div className="glass-card">
+            <h3 className="sa-card-title">
+              <UserPlus size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
               <span>Register Staff Member</span>
             </h3>
-            {sError && <div style={{ color: "#ef4444", fontSize: "0.85rem", marginBottom: "1rem" }}>{sError}</div>}
-            {sSuccess && <div style={{ color: "#10b981", fontSize: "0.85rem", marginBottom: "1rem" }}>Staff added successfully!</div>}
-            
-            <form onSubmit={handleAddStaff} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {sError && <div className="sa-msg sa-msg-error">{sError}</div>}
+            {sSuccess && <div className="sa-msg sa-msg-success">Staff added successfully!</div>}
+
+            <form onSubmit={handleAddStaff} className="sa-form">
               <div className="form-group">
                 <label>Staff Member Name</label>
                 <input type="text" value={sName} onChange={(e) => setSName(e.target.value)} placeholder="Prof. Amit Patil" required />
@@ -349,22 +345,22 @@ export const SuperAdminPanel: React.FC = () => {
                   {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
-              <button type="submit" className="btn btn-primary" style={{ width: "100%", marginTop: "0.5rem" }}>
+              <button type="submit" className="btn btn-primary sa-submit-btn">
                 Add Staff
               </button>
             </form>
           </div>
 
           {/* List Table */}
-          <div className="glass-card" style={{ padding: "2rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", gap: "1rem" }}>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Registered Staff Directory</h3>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>Filter Dept:</span>
-                <select 
-                  value={staffFilterDept} 
-                  onChange={(e) => setStaffFilterDept(e.target.value as Department)} 
-                  style={{ minHeight: "36px", height: "36px", padding: "0 0.5rem", fontSize: "0.85rem", width: "180px" }}
+          <div className="glass-card">
+            <div className="staff-dir-header">
+              <h3 className="sa-card-title sa-card-title-plain" style={{ marginBottom: 0 }}>Registered Staff Directory</h3>
+              <div className="sa-filter-row">
+                <span className="sa-filter-label">Filter Dept:</span>
+                <select
+                  value={staffFilterDept}
+                  onChange={(e) => setStaffFilterDept(e.target.value as Department)}
+                  className="sa-filter-select"
                 >
                   <option value="">All Departments</option>
                   {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -383,21 +379,20 @@ export const SuperAdminPanel: React.FC = () => {
                 </thead>
                 <tbody>
                   {loading && staffList.length === 0 ? (
-                    <tr><td colSpan={3} style={{ textAlign: "center", padding: "2rem" }}>Loading staff list...</td></tr>
+                    <tr><td colSpan={3} className="sa-td-center">Loading staff list...</td></tr>
                   ) : staffList.length === 0 ? (
-                    <tr><td colSpan={3} style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>No staff found in this directory.</td></tr>
+                    <tr><td colSpan={3} className="sa-td-center sa-td-muted">No staff found in this directory.</td></tr>
                   ) : (
                     staffList.map((s) => (
                       <tr key={s.id}>
-                        <td style={{ fontWeight: 600 }}>{s.name}</td>
+                        <td className="sa-td-bold">{s.name}</td>
                         <td>
                           <span className="badge badge-purple">{s.department}</span>
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <button
                             onClick={() => handleDeleteStaff(s.id!, s.name)}
-                            className="btn btn-danger"
-                            style={{ minHeight: "36px", height: "36px", padding: "0 0.75rem" }}
+                            className="btn btn-danger sa-icon-btn"
                             title="Remove Staff"
                           >
                             <Trash2 size={16} />
@@ -417,15 +412,15 @@ export const SuperAdminPanel: React.FC = () => {
       {activeTab === "subjects" && (
         <div className="admin-grid">
           {/* Create Form */}
-          <div className="glass-card" style={{ padding: "2rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Plus size={18} style={{ color: "var(--accent-blue)" }} />
+          <div className="glass-card">
+            <h3 className="sa-card-title">
+              <Plus size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
               <span>Add Subject / Course</span>
             </h3>
-            {subError && <div style={{ color: "#ef4444", fontSize: "0.85rem", marginBottom: "1rem" }}>{subError}</div>}
-            {subSuccess && <div style={{ color: "#10b981", fontSize: "0.85rem", marginBottom: "1rem" }}>Subject added successfully!</div>}
-            
-            <form onSubmit={handleAddSubject} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {subError && <div className="sa-msg sa-msg-error">{subError}</div>}
+            {subSuccess && <div className="sa-msg sa-msg-success">Subject added successfully!</div>}
+
+            <form onSubmit={handleAddSubject} className="sa-form">
               <div className="form-group">
                 <label>Subject / Course Name</label>
                 <input type="text" value={subName} onChange={(e) => setSubName(e.target.value)} placeholder="e.g. Advanced Operating Systems" required />
@@ -444,30 +439,29 @@ export const SuperAdminPanel: React.FC = () => {
                   {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <button type="submit" className="btn btn-primary" style={{ width: "100%", marginTop: "0.5rem" }}>
+              <button type="submit" className="btn btn-primary sa-submit-btn">
                 Add Subject
               </button>
             </form>
           </div>
 
           {/* List Table */}
-          <div className="glass-card" style={{ padding: "2rem" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", gap: "1rem" }}>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Subjects Catalogues</h3>
-              
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <select 
-                  value={subDept} 
-                  onChange={(e) => setSubDept(e.target.value as Department)} 
-                  style={{ minHeight: "36px", height: "36px", padding: "0 0.5rem", fontSize: "0.85rem", width: "160px" }}
+          <div className="glass-card">
+            <div className="sa-subjects-header">
+              <h3 className="sa-card-title sa-card-title-plain" style={{ marginBottom: 0 }}>Subjects Catalogues</h3>
+              <div className="sa-filter-row">
+                <select
+                  value={subDept}
+                  onChange={(e) => setSubDept(e.target.value as Department)}
+                  className="sa-filter-select"
                 >
                   <option value="">-- Select Dept --</option>
                   {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <select 
-                  value={subSem} 
-                  onChange={(e) => setSubSem(e.target.value as Semester)} 
-                  style={{ minHeight: "36px", height: "36px", padding: "0 0.5rem", fontSize: "0.85rem", width: "130px" }}
+                <select
+                  value={subSem}
+                  onChange={(e) => setSubSem(e.target.value as Semester)}
+                  className="sa-filter-select"
                 >
                   <option value="">-- Select Sem --</option>
                   {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -477,8 +471,8 @@ export const SuperAdminPanel: React.FC = () => {
 
             {!subDept || !subSem ? (
               <div className="table-wrapper">
-                <div style={{ textAlign: "center", padding: "4rem", color: "var(--text-muted)" }}>
-                  <Layers size={40} style={{ marginBottom: "1rem", color: "var(--text-muted)", opacity: 0.5 }} />
+                <div className="table-empty">
+                  <Layers size={40} style={{ opacity: 0.5 }} />
                   <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>Select Department and Semester first</p>
                   <p style={{ fontSize: "0.85rem" }}>Select a specific department and semester from the filter dropdowns to manage subjects.</p>
                 </div>
@@ -489,92 +483,80 @@ export const SuperAdminPanel: React.FC = () => {
                   <thead>
                     <tr>
                       <th>Subject Name</th>
-                      <th>Dept & Sem Mapping</th>
+                      <th>Dept &amp; Sem</th>
                       <th style={{ textAlign: "center" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading && subjectsList.length === 0 ? (
-                      <tr><td colSpan={3} style={{ textAlign: "center", padding: "2rem" }}>Loading subjects list...</td></tr>
+                      <tr><td colSpan={3} className="sa-td-center">Loading subjects list...</td></tr>
                     ) : subjectsList.length === 0 ? (
-                      <tr><td colSpan={3} style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>No subjects recorded in database for this mapping.</td></tr>
+                      <tr><td colSpan={3} className="sa-td-center sa-td-muted">No subjects recorded for this mapping.</td></tr>
                     ) : (
                       subjectsList.map((s) => {
-                      const isEditing = editingSubId === s.id;
-                      return (
-                        <tr key={s.id}>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                value={editingSubName}
-                                onChange={(e) => setEditingSubName(e.target.value)}
-                                style={{
-                                  padding: "0.4rem 0.75rem",
-                                  fontSize: "0.9rem",
-                                  width: "100%",
-                                  minHeight: "36px",
-                                  borderRadius: "6px",
-                                  border: "1px solid var(--accent-blue)",
-                                  backgroundColor: "rgba(255, 255, 255, 0.8)",
-                                  color: "var(--text-primary)"
-                                }}
-                                autoFocus
-                              />
-                            ) : (
-                              <span style={{ fontWeight: 600 }}>{s.name}</span>
-                            )}
-                          </td>
-                          <td>
-                            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{s.department}</span>
-                            <span className="badge badge-purple" style={{ marginLeft: "0.5rem", padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}>{s.semester}</span>
-                          </td>
-                          <td style={{ textAlign: "center" }}>
-                            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center" }}>
+                        const isEditing = editingSubId === s.id;
+                        return (
+                          <tr key={s.id}>
+                            <td>
                               {isEditing ? (
-                                <>
-                                  <button
-                                    onClick={() => handleSaveSubjectEdit(s.id!)}
-                                    className="btn btn-success"
-                                    style={{ minHeight: "36px", height: "36px", padding: "0 0.75rem" }}
-                                    title="Save Subject"
-                                  >
-                                    <Check size={16} />
-                                  </button>
-                                  <button
-                                    onClick={handleEditSubjectCancel}
-                                    className="btn btn-secondary"
-                                    style={{ minHeight: "36px", height: "36px", padding: "0 0.75rem" }}
-                                    title="Cancel Edit"
-                                  >
-                                    <X size={16} />
-                                  </button>
-                                </>
+                                <input
+                                  type="text"
+                                  value={editingSubName}
+                                  onChange={(e) => setEditingSubName(e.target.value)}
+                                  className="sa-edit-input"
+                                  autoFocus
+                                />
                               ) : (
-                                <>
-                                  <button
-                                    onClick={() => handleEditSubjectStart(s.id!, s.name)}
-                                    className="btn btn-secondary"
-                                    style={{ minHeight: "36px", height: "36px", padding: "0 0.75rem", color: "var(--accent-blue)" }}
-                                    title="Edit Subject"
-                                  >
-                                    <Edit2 size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteSubject(s.id!, s.name)}
-                                    className="btn btn-danger"
-                                    style={{ minHeight: "36px", height: "36px", padding: "0 0.75rem" }}
-                                    title="Delete Subject"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </>
+                                <span className="sa-td-bold">{s.name}</span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }))}
+                            </td>
+                            <td>
+                              <span className="sa-td-secondary">{s.department}</span>
+                              <span className="badge badge-purple sa-sem-badge">{s.semester}</span>
+                            </td>
+                            <td style={{ textAlign: "center" }}>
+                              <div className="sa-action-btns">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleSaveSubjectEdit(s.id!)}
+                                      className="btn btn-success sa-icon-btn"
+                                      title="Save Subject"
+                                    >
+                                      <Check size={16} />
+                                    </button>
+                                    <button
+                                      onClick={handleEditSubjectCancel}
+                                      className="btn btn-secondary sa-icon-btn"
+                                      title="Cancel Edit"
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleEditSubjectStart(s.id!, s.name)}
+                                      className="btn btn-secondary sa-icon-btn sa-edit-btn"
+                                      title="Edit Subject"
+                                    >
+                                      <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSubject(s.id!, s.name)}
+                                      className="btn btn-danger sa-icon-btn"
+                                      title="Delete Subject"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -586,3 +568,4 @@ export const SuperAdminPanel: React.FC = () => {
   );
 };
 export default SuperAdminPanel;
+

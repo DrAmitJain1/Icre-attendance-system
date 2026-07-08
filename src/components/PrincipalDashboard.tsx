@@ -386,9 +386,9 @@ export const PrincipalDashboard: React.FC = () => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div className="pd-page">
       {/* Page Heading */}
-      <div>
+      <div className="pd-heading">
         <h2>Principal Analytics Dashboard</h2>
         <p className="subtitle" style={{ marginBottom: 0 }}>
           Real-time updates of class completion and student absence analytics.
@@ -396,19 +396,7 @@ export const PrincipalDashboard: React.FC = () => {
       </div>
 
       {error && (
-        <div
-          style={{
-            backgroundColor: "rgba(239, 68, 68, 0.15)",
-            border: "1px solid rgba(239, 68, 68, 0.3)",
-            borderRadius: "8px",
-            padding: "0.75rem 1rem",
-            color: "#fca5a5",
-            fontSize: "0.9rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem"
-          }}
-        >
+        <div className="pd-error-banner">
           <AlertCircle size={18} style={{ flexShrink: 0 }} />
           <span>{error}</span>
         </div>
@@ -456,12 +444,12 @@ export const PrincipalDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="stat-box stat-danger" style={{ minWidth: "260px" }}>
+        <div className="stat-box stat-danger">
           <div className="stat-icon">
             <AlertCircle size={22} />
           </div>
           <div className="stat-info">
-            <span className="stat-number" style={{ fontSize: "1.1rem", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0.5rem 0" }} title={highestAbsenceDept}>
+            <span className="stat-number pd-dept-stat" title={highestAbsenceDept}>
               {highestAbsenceDept}
             </span>
             <span className="stat-label">Highest Absence Dept</span>
@@ -469,414 +457,395 @@ export const PrincipalDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Grid Layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}>
-        
-        {/* Department Breakdown Section (Always visible) */}
-        <div className="glass-card" style={{ padding: "2rem" }}>
-          <h3 style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <TrendingDown size={18} style={{ color: "var(--accent-blue)" }} />
-            <span>Absences Registered by Department</span>
-          </h3>
-          <div className="department-list">
-            {DEPARTMENTS.map((dept) => {
-              const val = deptStats[dept] || 0;
-              const percentage = Math.round((val / maxDeptAbsence) * 100);
-              return (
-                <div key={dept} className="dept-progress-card">
-                  <div className="dept-header">
-                    <span className="dept-name">{dept}</span>
-                    <span className="dept-stat-count">{val} Absences</span>
-                  </div>
-                  <div className="progress-track">
-                    <div 
-                      className="progress-bar" 
-                      style={{ 
-                        width: `${percentage}%`,
-                        background: dept === "Computer Engineering" ? "var(--grad-primary)" : "linear-gradient(135deg, #10b981 0%, #3b82f6 100%)"
-                      }}
-                    ></div>
-                  </div>
+      {/* Department Breakdown */}
+      <div className="glass-card">
+        <h3 className="pd-section-title">
+          <TrendingDown size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
+          <span>Absences Registered by Department</span>
+        </h3>
+        <div className="department-list">
+          {DEPARTMENTS.map((dept) => {
+            const val = deptStats[dept] || 0;
+            const percentage = Math.round((val / maxDeptAbsence) * 100);
+            return (
+              <div key={dept} className="dept-progress-card">
+                <div className="dept-header">
+                  <span className="dept-name">{dept}</span>
+                  <span className="dept-stat-count">{val} Absences</span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="progress-track">
+                  <div
+                    className="progress-bar"
+                    style={{
+                      width: `${percentage}%`,
+                      background: dept === "Computer Engineering" ? "var(--grad-primary)" : "linear-gradient(135deg, #10b981 0%, #3b82f6 100%)"
+                    }}
+                  ></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sub-Navigation and Data Section */}
+      <div className="glass-card">
+        {/* Tab Toggles */}
+        <div className="admin-tab-container pd-section-tabs">
+          <button
+            className={`nav-btn ${section === "logs" ? "active" : ""}`}
+            onClick={() => setSection("logs")}
+          >
+            <FileSpreadsheet size={16} />
+            <span>Daily Attendance Logs</span>
+          </button>
+          <button
+            className={`nav-btn ${section === "defaulters" ? "active" : ""}`}
+            onClick={() => setSection("defaulters")}
+          >
+            <UserX size={16} />
+            <span>Monthly Defaulter List (&lt; 75%)</span>
+          </button>
         </div>
 
-        {/* Sub-Navigation and Data Section */}
-        <div className="glass-card" style={{ padding: "2rem" }}>
-          {/* Section Selector Tab Toggles */}
-          <div className="admin-tab-container" style={{ marginBottom: "1.5rem" }}>
-            <button
-              className={`nav-btn ${section === "logs" ? "active" : ""}`}
-              onClick={() => setSection("logs")}
-              style={{ padding: "0.5rem 1.2rem", minHeight: "38px" }}
-            >
-              <FileSpreadsheet size={16} />
-              <span>Daily Attendance Logs</span>
-            </button>
-            <button
-              className={`nav-btn ${section === "defaulters" ? "active" : ""}`}
-              onClick={() => setSection("defaulters")}
-              style={{ padding: "0.5rem 1.2rem", minHeight: "38px" }}
-            >
-              <UserX size={16} />
-              <span>Monthly Defaulter List (&lt; 75%)</span>
-            </button>
-          </div>
+        {/* --- VIEW 1: DAILY ATTENDANCE LOGS --- */}
+        {section === "logs" && (
+          <>
+            <h3 className="pd-section-title">
+              <SlidersHorizontal size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
+              <span>Filter Logs</span>
+            </h3>
 
-          {/* --- VIEW 1: DAILY ATTENDANCE LOGS --- */}
-          {section === "logs" && (
-            <>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <SlidersHorizontal size={18} style={{ color: "var(--accent-blue)" }} />
-                <span>Filter Logs</span>
-              </h3>
+            <div className="filters-panel">
+              <div className="form-group">
+                <label htmlFor="startDate" className="pd-filter-label">Start Date</label>
+                <input
+                  type="date"
+                  id="startDate"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pd-filter-input"
+                />
+              </div>
 
-              <div className="filters-panel">
-                <div className="form-group">
-                  <label htmlFor="startDate" style={{ fontSize: "0.8rem" }}>Start Date</label>
+              <div className="form-group">
+                <label htmlFor="endDate" className="pd-filter-label">End Date</label>
+                <input
+                  type="date"
+                  id="endDate"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="pd-filter-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="filterDept" className="pd-filter-label">Department</label>
+                <select
+                  id="filterDept"
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value as Department)}
+                  className="pd-filter-input"
+                >
+                  <option value="">All Departments</option>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="filterSem" className="pd-filter-label">Semester</label>
+                <select
+                  id="filterSem"
+                  value={selectedSem}
+                  onChange={(e) => setSelectedSem(e.target.value as Semester)}
+                  className="pd-filter-input"
+                >
+                  <option value="">All Semesters</option>
+                  {SEMESTERS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="filterSubject" className="pd-filter-label">Subject</label>
+                <select
+                  id="filterSubject"
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="pd-filter-input"
+                >
+                  <option value="">All Subjects</option>
+                  {subjectsList.map((sub) => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="searchStaff" className="pd-filter-label">Staff Name</label>
+                <div style={{ position: "relative" }}>
                   <input
-                    type="date"
-                    id="startDate"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
+                    type="text"
+                    id="searchStaff"
+                    placeholder="Search staff..."
+                    value={searchStaff}
+                    onChange={(e) => setSearchStaff(e.target.value)}
+                    className="pd-filter-input pd-search-input"
+                  />
+                  <Search
+                    size={14}
+                    style={{
+                      position: "absolute",
+                      left: "0.75rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "var(--text-muted)"
+                    }}
                   />
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="endDate" style={{ fontSize: "0.8rem" }}>End Date</label>
-                  <input
-                    type="date"
-                    id="endDate"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="filterDept" style={{ fontSize: "0.8rem" }}>Department</label>
-                  <select
-                    id="filterDept"
-                    value={selectedDept}
-                    onChange={(e) => setSelectedDept(e.target.value as Department)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  >
-                    <option value="">All Departments</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="filterSem" style={{ fontSize: "0.8rem" }}>Semester</label>
-                  <select
-                    id="filterSem"
-                    value={selectedSem}
-                    onChange={(e) => setSelectedSem(e.target.value as Semester)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  >
-                    <option value="">All Semesters</option>
-                    {SEMESTERS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="filterSubject" style={{ fontSize: "0.8rem" }}>Subject</label>
-                  <select
-                    id="filterSubject"
-                    value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  >
-                    <option value="">All Subjects</option>
-                    {subjectsList.map((sub) => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="searchStaff" style={{ fontSize: "0.8rem" }}>Staff Name</label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="text"
-                      id="searchStaff"
-                      placeholder="Search staff..."
-                      value={searchStaff}
-                      onChange={(e) => setSearchStaff(e.target.value)}
-                      style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem 0.5rem 2.25rem" }}
-                    />
-                    <Search
-                      size={14}
-                      style={{
-                        position: "absolute",
-                        left: "0.75rem",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "var(--text-muted)"
-                      }}
-                    />
-                  </div>
-                </div>
               </div>
+            </div>
 
-              <div className="dashboard-actions">
-                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 500 }}>
-                  Showing {filteredRecords.length} of {records.length} records
-                </span>
-                <div style={{ display: "flex", gap: "0.75rem" }}>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => handleExportLogs("filtered")}
-                    disabled={filteredRecords.length === 0}
-                    style={{ minHeight: "40px", height: "40px", padding: "0 1rem", fontSize: "0.9rem" }}
-                  >
-                    <Download size={16} />
-                    <span>Export Filtered</span>
-                  </button>
-                  <button
-                    className="btn btn-success"
-                    onClick={() => handleExportLogs("all")}
-                    disabled={records.length === 0}
-                    style={{ minHeight: "40px", height: "40px", padding: "0 1rem", fontSize: "0.9rem" }}
-                  >
-                    <FileSpreadsheet size={16} />
-                    <span>Export Master Sheet</span>
-                  </button>
-                </div>
+            <div className="dashboard-actions">
+              <span className="pd-records-count">
+                Showing {filteredRecords.length} of {records.length} records
+              </span>
+              <div className="pd-action-btns">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => handleExportLogs("filtered")}
+                  disabled={filteredRecords.length === 0}
+                >
+                  <Download size={16} />
+                  <span>Export Filtered</span>
+                </button>
+                <button
+                  className="btn btn-success"
+                  onClick={() => handleExportLogs("all")}
+                  disabled={records.length === 0}
+                >
+                  <FileSpreadsheet size={16} />
+                  <span>Export Master Sheet</span>
+                </button>
               </div>
+            </div>
 
-              <div style={{ marginTop: "1.5rem" }}>
-                {loading ? (
-                  <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)" }}>
-                    <div className="spinner" style={{ marginBottom: "1rem" }}></div>
-                    <span>Syncing logs with Firebase...</span>
-                  </div>
-                ) : filteredRecords.length === 0 ? (
-                  <div className="table-wrapper">
-                    <div className="table-empty">
-                      <FolderOpen size={48} />
-                      <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>No records match your filters.</p>
-                      <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                        Try adjusting the dates, dropdown selectors, or checking the search name.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="table-wrapper">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Time</th>
-                          <th>Staff Name</th>
-                          <th>Dept & Sem</th>
-                          <th>Subject / Course</th>
-                          <th style={{ textAlign: "center" }}>Absentees</th>
-                          <th>Absent Roll Numbers</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredRecords.map((r, idx) => (
-                          <tr key={r.id || idx}>
-                            <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{r.date}</td>
-                            <td style={{ color: "var(--text-secondary)", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
-                              {r.startTime} - {r.endTime}
-                            </td>
-                            <td style={{ fontWeight: 500 }}>{r.staffName}</td>
-                            <td>
-                              <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{r.department}</span>
-                              <span className="badge badge-purple" style={{ marginLeft: "0.5rem", padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}>{r.semester}</span>
-                            </td>
-                            <td style={{ fontWeight: 500, color: "#2563eb" }}>{r.subject}</td>
-                            <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                              <span 
-                                style={{ 
-                                  color: getAbsenteeCount(r.absentNos) > 0 ? "var(--accent-red)" : "var(--accent-green)",
-                                  backgroundColor: getAbsenteeCount(r.absentNos) > 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(16, 185, 129, 0.08)",
-                                  padding: "0.25rem 0.5rem",
-                                  borderRadius: "4px"
-                                }}
-                              >
-                                {getAbsenteeCount(r.absentNos)}
-                              </span>
-                            </td>
-                            <td style={{ color: "var(--text-secondary)", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.absentNos}>
-                              {r.absentNos || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>None (100% Present)</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* --- VIEW 2: DEFAULTER STUDENT LIST (< 75%) --- */}
-          {section === "defaulters" && (
-            <>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <SlidersHorizontal size={18} style={{ color: "var(--accent-blue)" }} />
-                <span>Select Department, Semester & Month</span>
-              </h3>
-
-              <div className="filters-panel" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-                {/* Month Picker */}
-                <div className="form-group">
-                  <label htmlFor="selectedMonth" style={{ fontSize: "0.8rem" }}>Month</label>
-                  <input
-                    type="month"
-                    id="selectedMonth"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  />
+            <div className="pd-table-section">
+              {loading ? (
+                <div className="pd-loading">
+                  <div className="spinner" style={{ marginBottom: "1rem" }}></div>
+                  <span>Syncing logs with Firebase...</span>
                 </div>
-
-                {/* Department */}
-                <div className="form-group">
-                  <label htmlFor="filterDept" style={{ fontSize: "0.8rem" }}>Department</label>
-                  <select
-                    id="filterDept"
-                    value={selectedDept}
-                    onChange={(e) => setSelectedDept(e.target.value as Department)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  >
-                    <option value="">-- Choose Department --</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Semester */}
-                <div className="form-group">
-                  <label htmlFor="filterSem" style={{ fontSize: "0.8rem" }}>Semester</label>
-                  <select
-                    id="filterSem"
-                    value={selectedSem}
-                    onChange={(e) => setSelectedSem(e.target.value as Semester)}
-                    style={{ minHeight: "40px", fontSize: "0.9rem", padding: "0.5rem 0.75rem" }}
-                  >
-                    <option value="">-- Choose Semester --</option>
-                    {SEMESTERS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-               {!selectedMonth ? (
+              ) : filteredRecords.length === 0 ? (
                 <div className="table-wrapper">
                   <div className="table-empty">
-                    <UserX size={48} />
-                    <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>Provide filters to view defaulter report</p>
+                    <FolderOpen size={48} />
+                    <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>No records match your filters.</p>
                     <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                      You must select a Month to generate the student defaulter analytics.
+                      Try adjusting the dates, dropdown selectors, or checking the search name.
                     </p>
                   </div>
                 </div>
               ) : (
-                <>
-                   <div className="dashboard-actions">
-                    <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 500 }}>
-                      Found {defaultersList.length} defaulters for {selectedDept || "All Departments"} ({selectedSem || "All Semesters"}) - {selectedMonth}
-                    </span>
-                    <div style={{ display: "flex", gap: "0.75rem" }}>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => handleExportDefaulters("filtered")}
-                        disabled={defaultersList.length === 0}
-                        style={{ minHeight: "40px", height: "40px", padding: "0 1rem", fontSize: "0.9rem" }}
-                      >
-                        <Download size={16} />
-                        <span>Export Filtered Defaulters</span>
-                      </button>
-                      <button
-                        className="btn btn-danger"
-                        onClick={() => handleExportDefaulters("all")}
-                        style={{ minHeight: "40px", height: "40px", padding: "0 1rem", fontSize: "0.9rem" }}
-                      >
-                        <FileSpreadsheet size={16} />
-                        <span>Export Master Defaulters List</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: "1.5rem" }}>
-                    {defaultersList.length === 0 ? (
-                      <div className="table-wrapper">
-                        <div className="table-empty" style={{ color: "var(--accent-green)" }}>
-                          <FolderOpen size={48} />
-                          <p style={{ fontWeight: 600 }}>No defaulter students found!</p>
-                          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                            All students have an attendance rate greater than or equal to 75% for this month.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="table-wrapper">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Roll Number</th>
-                              <th>Department</th>
-                              <th>Semester</th>
-                              <th>Subject</th>
-                              <th style={{ textAlign: "center" }}>Lectures Held</th>
-                              <th style={{ textAlign: "center" }}>Lectures Absent</th>
-                              <th style={{ textAlign: "center" }}>Attendance Rate</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {defaultersList.map((d, idx) => (
-                              <tr key={idx} style={{ color: "var(--accent-red)", backgroundColor: "rgba(239, 68, 68, 0.01)" }}>
-                                <td style={{ fontWeight: 800 }}>Roll No {d.rollNo}</td>
-                                <td>{d.department}</td>
-                                <td>{d.semester}</td>
-                                <td style={{ fontWeight: 600 }}>{d.subject}</td>
-                                <td style={{ textAlign: "center", fontWeight: 500 }}>{d.classesHeld}</td>
-                                <td style={{ textAlign: "center", fontWeight: 500 }}>{d.absences}</td>
-                                <td style={{ textAlign: "center", fontWeight: "bold" }}>
-                                  <span 
-                                    style={{
-                                      backgroundColor: "rgba(239, 68, 68, 0.08)",
-                                      padding: "0.25rem 0.5rem",
-                                      borderRadius: "4px"
-                                    }}
-                                  >
-                                    {d.rate}%
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="badge" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)" }}>
-                                    Critically Low (&lt; 75%)
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Staff Name</th>
+                        <th>Dept &amp; Sem</th>
+                        <th>Subject / Course</th>
+                        <th style={{ textAlign: "center" }}>Absentees</th>
+                        <th>Absent Roll Nos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRecords.map((r, idx) => (
+                        <tr key={r.id || idx}>
+                          <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{r.date}</td>
+                          <td className="pd-time-cell">
+                            {r.startTime} - {r.endTime}
+                          </td>
+                          <td style={{ fontWeight: 500 }}>{r.staffName}</td>
+                          <td>
+                            <span className="pd-dept-text">{r.department}</span>
+                            <span className="badge badge-purple pd-sem-badge">{r.semester}</span>
+                          </td>
+                          <td className="pd-subject-cell">{r.subject}</td>
+                          <td style={{ textAlign: "center", fontWeight: "bold" }}>
+                            <span
+                              style={{
+                                color: getAbsenteeCount(r.absentNos) > 0 ? "var(--accent-red)" : "var(--accent-green)",
+                                backgroundColor: getAbsenteeCount(r.absentNos) > 0 ? "rgba(239, 68, 68, 0.08)" : "rgba(16, 185, 129, 0.08)",
+                                padding: "0.25rem 0.5rem",
+                                borderRadius: "4px"
+                              }}
+                            >
+                              {getAbsenteeCount(r.absentNos)}
+                            </span>
+                          </td>
+                          <td className="pd-absent-cell" title={r.absentNos}>
+                            {r.absentNos || <span className="pd-none-text">None (100% Present)</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </>
-          )}
+            </div>
+          </>
+        )}
 
-        </div>
+        {/* --- VIEW 2: DEFAULTER STUDENT LIST (< 75%) --- */}
+        {section === "defaulters" && (
+          <>
+            <h3 className="pd-section-title">
+              <SlidersHorizontal size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
+              <span>Select Department, Semester &amp; Month</span>
+            </h3>
+
+            <div className="filters-panel">
+              <div className="form-group">
+                <label htmlFor="selectedMonth" className="pd-filter-label">Month</label>
+                <input
+                  type="month"
+                  id="selectedMonth"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="pd-filter-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="defFilterDept" className="pd-filter-label">Department</label>
+                <select
+                  id="defFilterDept"
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value as Department)}
+                  className="pd-filter-input"
+                >
+                  <option value="">-- Choose Department --</option>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="defFilterSem" className="pd-filter-label">Semester</label>
+                <select
+                  id="defFilterSem"
+                  value={selectedSem}
+                  onChange={(e) => setSelectedSem(e.target.value as Semester)}
+                  className="pd-filter-input"
+                >
+                  <option value="">-- Choose Semester --</option>
+                  {SEMESTERS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {!selectedMonth ? (
+              <div className="table-wrapper">
+                <div className="table-empty">
+                  <UserX size={48} />
+                  <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>Provide filters to view defaulter report</p>
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                    You must select a Month to generate the student defaulter analytics.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="dashboard-actions">
+                  <span className="pd-records-count">
+                    Found {defaultersList.length} defaulters for {selectedDept || "All Departments"} ({selectedSem || "All Semesters"}) - {selectedMonth}
+                  </span>
+                  <div className="pd-action-btns">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => handleExportDefaulters("filtered")}
+                      disabled={defaultersList.length === 0}
+                    >
+                      <Download size={16} />
+                      <span>Export Filtered Defaulters</span>
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleExportDefaulters("all")}
+                    >
+                      <FileSpreadsheet size={16} />
+                      <span>Export Master Defaulters List</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pd-table-section">
+                  {defaultersList.length === 0 ? (
+                    <div className="table-wrapper">
+                      <div className="table-empty" style={{ color: "var(--accent-green)" }}>
+                        <FolderOpen size={48} />
+                        <p style={{ fontWeight: 600 }}>No defaulter students found!</p>
+                        <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                          All students have an attendance rate greater than or equal to 75% for this month.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="table-wrapper">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Roll No</th>
+                            <th>Department</th>
+                            <th>Sem</th>
+                            <th>Subject</th>
+                            <th style={{ textAlign: "center" }}>Held</th>
+                            <th style={{ textAlign: "center" }}>Absent</th>
+                            <th style={{ textAlign: "center" }}>Rate</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {defaultersList.map((d, idx) => (
+                            <tr key={idx} className="pd-defaulter-row">
+                              <td style={{ fontWeight: 800 }}>#{d.rollNo}</td>
+                              <td className="pd-dept-text">{d.department}</td>
+                              <td>{d.semester}</td>
+                              <td style={{ fontWeight: 600 }}>{d.subject}</td>
+                              <td style={{ textAlign: "center", fontWeight: 500 }}>{d.classesHeld}</td>
+                              <td style={{ textAlign: "center", fontWeight: 500 }}>{d.absences}</td>
+                              <td style={{ textAlign: "center", fontWeight: "bold" }}>
+                                <span className="pd-rate-badge">
+                                  {d.rate}%
+                                </span>
+                              </td>
+                              <td>
+                                <span className="badge pd-defaulter-badge">
+                                  &lt; 75%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 };
 export default PrincipalDashboard;
+
