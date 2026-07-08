@@ -61,7 +61,7 @@ export const StaffForm: React.FC = () => {
       if (department && semester) {
         try {
           const list = await getSubjects(department, semester);
-          setSubjectsList(list.map(s => s.name));
+          setSubjectsList(Array.from(new Set(list.map(s => s.name))));
           setSubject(""); // Reset subject selection
         } catch (e) {
           console.error("Failed to load subjects:", e);
@@ -98,6 +98,13 @@ export const StaffForm: React.FC = () => {
     };
     loadStaffData();
   }, [department]);
+
+  // Reset semester if department changes to Science & Humanities and semester is > Sem 2
+  useEffect(() => {
+    if (department === "Science & Humanities" && semester !== "" && semester !== "Semester 1" && semester !== "Semester 2") {
+      setSemester("");
+    }
+  }, [department, semester]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,7 +276,7 @@ export const StaffForm: React.FC = () => {
             onChange={(e) => setSemester(e.target.value as Semester)}
           >
             <option value="">-- Select Semester --</option>
-            {SEMESTERS.map((sem) => (
+            {(department === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map((sem) => (
               <option key={sem} value={sem}>
                 {sem}
               </option>

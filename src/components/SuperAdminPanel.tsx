@@ -71,6 +71,13 @@ export const SuperAdminPanel: React.FC = () => {
   const [editingSubId, setEditingSubId] = useState<string | null>(null);
   const [editingSubName, setEditingSubName] = useState("");
 
+  // Reset semester if department changes to Science & Humanities and semester is > Sem 2
+  useEffect(() => {
+    if (subDept === "Science & Humanities" && subSem !== "" && subSem !== "Semester 1" && subSem !== "Semester 2") {
+      setSubSem("");
+    }
+  }, [subDept, subSem]);
+
   // Loaders
   const [loading, setLoading] = useState(false);
 
@@ -267,7 +274,7 @@ export const SuperAdminPanel: React.FC = () => {
   const downloadTemplate = () => {
     const templateData = [
       { "Staff Name": "Prof. Amit Patil", "Department": "Computer Engineering" },
-      { "Staff Name": "Prof. Priya Sharma", "Department": "Electronics Engineering" },
+      { "Staff Name": "Prof. Priya Sharma", "Department": "Electronics & Tele. Comm. Engineering" },
       { "Staff Name": "Prof. Rahul Desai", "Department": "Mechanical Engineering" },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
@@ -666,7 +673,7 @@ export const SuperAdminPanel: React.FC = () => {
                 <label>Semester</label>
                 <select value={subSem} onChange={(e) => setSubSem(e.target.value as Semester)} required>
                   <option value="">-- Select Semester --</option>
-                  {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {(subDept === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <button type="submit" className="btn btn-primary sa-submit-btn">
@@ -694,7 +701,7 @@ export const SuperAdminPanel: React.FC = () => {
                   className="sa-filter-select"
                 >
                   <option value="">-- Select Sem --</option>
-                  {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {(subDept === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>

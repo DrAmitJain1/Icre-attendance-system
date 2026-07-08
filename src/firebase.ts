@@ -107,7 +107,7 @@ const DEFAULT_DEMO_STAFF: Staff[] = [
   { name: "Dr. Ranjeet Powar", department: "Computer Engineering", createdAt: Date.now() },
   { name: "Prof. Amit Patil", department: "Computer Engineering", createdAt: Date.now() },
   { name: "Prof. S. R. Joshi", department: "Electrical Engineering", createdAt: Date.now() },
-  { name: "Dr. N. M. Kulkarni", department: "Civil Engineering", createdAt: Date.now() }
+  { name: "Dr. N. M. Kulkarni", department: "Civil & Rural Engineering", createdAt: Date.now() }
 ];
 
 const DEFAULT_DEMO_PRINCIPALS: Principal[] = [
@@ -201,15 +201,14 @@ export const deleteStaff = async (id: string): Promise<void> => {
 
 // --- 2. SUBJECTS CRUD FUNCTIONS ---
 
-export const getSubjects = async (department: string, semester: string): Promise<SubjectItem[]> => {
+export const getSubjects = async (department: string, semester?: string): Promise<SubjectItem[]> => {
   if (IS_FIREBASE_CONFIGURED && db) {
     const collRef = fbCollection(db, "subjects");
-    // Equality-only query (does not require composite index!)
-    const q = fbQuery(
-      collRef, 
-      fbWhere("department", "==", department), 
-      fbWhere("semester", "==", semester)
-    );
+    const constraints = [fbWhere("department", "==", department)];
+    if (semester) {
+      constraints.push(fbWhere("semester", "==", semester));
+    }
+    const q = fbQuery(collRef, ...constraints);
     const snapshot = await fbGetDocs(q);
     const result: SubjectItem[] = [];
     snapshot.forEach(doc => {
@@ -227,7 +226,7 @@ export const getSubjects = async (department: string, semester: string): Promise
   } else {
     // Simulated Mode
     const list: SubjectItem[] = JSON.parse(localStorage.getItem("attendance_subjects_sim") || "[]");
-    const filtered = list.filter(s => s.department === department && s.semester === semester);
+    const filtered = list.filter(s => s.department === department && (!semester || s.semester === semester));
     return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }
 };

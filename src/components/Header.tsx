@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="navbar-container">
         <div className="nav-brand" style={{ cursor: "pointer" }} onClick={() => handleNavClick("staff")}>
           <GraduationCap size={28} />
-          <span>Vidyalaya Attendance</span>
+          <span>SMV ICRE Attendance</span>
         </div>
 
         {/* Mobile Hamburger toggle button */}

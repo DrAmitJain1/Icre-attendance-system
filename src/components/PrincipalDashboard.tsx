@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { 
   subscribeToAttendanceRecords, 
+  getSubjects,
   type AttendanceRecord 
 } from "../firebase";
-import { DEPARTMENTS, SEMESTERS, SUBJECT_MAPPING, type Department, type Semester } from "../subjects";
+import { DEPARTMENTS, SEMESTERS, type Department, type Semester } from "../subjects";
 import { 
   Download, 
   Search, 
@@ -64,21 +65,29 @@ export const PrincipalDashboard: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // Reset semester if department changes to Science & Humanities and semester is > Sem 2
+  useEffect(() => {
+    if (selectedDept === "Science & Humanities" && selectedSem !== "" && selectedSem !== "Semester 1" && selectedSem !== "Semester 2") {
+      setSelectedSem("");
+    }
+  }, [selectedDept, selectedSem]);
+
   // Update subjects dropdown options when department/semester filters change
   useEffect(() => {
-    if (selectedDept && selectedSem) {
-      setSubjectsList(SUBJECT_MAPPING[selectedDept][selectedSem] || []);
-    } else if (selectedDept) {
-      const allSubjectsSet = new Set<string>();
-      SEMESTERS.forEach(sem => {
-        const subs = SUBJECT_MAPPING[selectedDept][sem] || [];
-        subs.forEach(s => allSubjectsSet.add(s));
-      });
-      setSubjectsList(Array.from(allSubjectsSet));
-    } else {
-      setSubjectsList([]);
-    }
-    setSelectedSubject(""); // Reset subject filter
+    const loadSubjects = async () => {
+      if (selectedDept) {
+        try {
+          const list = await getSubjects(selectedDept, selectedSem || undefined);
+          setSubjectsList(Array.from(new Set(list.map(s => s.name))));
+        } catch (e) {
+          console.error("Failed to load subjects for principal dashboard:", e);
+        }
+      } else {
+        setSubjectsList([]);
+      }
+      setSelectedSubject(""); // Reset subject filter
+    };
+    loadSubjects();
   }, [selectedDept, selectedSem]);
 
   // Apply filters in real-time for logs view
@@ -563,7 +572,7 @@ export const PrincipalDashboard: React.FC = () => {
                   className="pd-filter-input"
                 >
                   <option value="">All Semesters</option>
-                  {SEMESTERS.map((s) => (
+                  {(selectedDept === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -745,7 +754,7 @@ export const PrincipalDashboard: React.FC = () => {
                   className="pd-filter-input"
                 >
                   <option value="">-- Choose Semester --</option>
-                  {SEMESTERS.map((s) => (
+                  {(selectedDept === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>

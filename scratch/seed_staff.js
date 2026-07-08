@@ -15,25 +15,29 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const mockStaff = [
+  // Science & Humanities
+  { name: "Prof. S. A. Kulkarni", department: "Science & Humanities", createdAt: Date.now() },
+  { name: "Prof. R. V. Nikam", department: "Science & Humanities", createdAt: Date.now() },
+
   // Computer
   { name: "Dr. Ranjeet Powar", department: "Computer Engineering", createdAt: Date.now() },
   { name: "Prof. Amit Patil", department: "Computer Engineering", createdAt: Date.now() },
   { name: "Prof. Neha Shah", department: "Computer Engineering", createdAt: Date.now() },
   
-  // Electronics
-  { name: "Prof. Vijay Mane", department: "Electronics Engineering", createdAt: Date.now() },
-  { name: "Prof. Sanjay Patil", department: "Electronics Engineering", createdAt: Date.now() },
-  { name: "Prof. K. P. Salunkhe", department: "Electronics Engineering", createdAt: Date.now() },
+  // Electronics & Tele. Comm.
+  { name: "Prof. Vijay Mane", department: "Electronics & Tele. Comm. Engineering", createdAt: Date.now() },
+  { name: "Prof. Sanjay Patil", department: "Electronics & Tele. Comm. Engineering", createdAt: Date.now() },
+  { name: "Prof. K. P. Salunkhe", department: "Electronics & Tele. Comm. Engineering", createdAt: Date.now() },
   
   // Electrical
   { name: "Prof. S. R. Joshi", department: "Electrical Engineering", createdAt: Date.now() },
   { name: "Prof. A. B. Deshmukh", department: "Electrical Engineering", createdAt: Date.now() },
   { name: "Prof. M. S. Gaikwad", department: "Electrical Engineering", createdAt: Date.now() },
   
-  // Civil
-  { name: "Dr. N. M. Kulkarni", department: "Civil Engineering", createdAt: Date.now() },
-  { name: "Prof. P. V. Ghadge", department: "Civil Engineering", createdAt: Date.now() },
-  { name: "Prof. R. D. Shinde", department: "Civil Engineering", createdAt: Date.now() },
+  // Civil & Rural
+  { name: "Dr. N. M. Kulkarni", department: "Civil & Rural Engineering", createdAt: Date.now() },
+  { name: "Prof. P. V. Ghadge", department: "Civil & Rural Engineering", createdAt: Date.now() },
+  { name: "Prof. R. D. Shinde", department: "Civil & Rural Engineering", createdAt: Date.now() },
   
   // Mechanical
   { name: "Prof. S. H. Sawant", department: "Mechanical Engineering", createdAt: Date.now() },

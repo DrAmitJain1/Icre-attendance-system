@@ -1,8 +1,9 @@
 export const DEPARTMENTS = [
+  "Science & Humanities",
   "Computer Engineering",
-  "Electronics Engineering",
+  "Electronics & Tele. Comm. Engineering",
   "Electrical Engineering",
-  "Civil Engineering",
+  "Civil & Rural Engineering",
   "Mechanical Engineering"
 ] as const;
 
@@ -20,6 +21,34 @@ export const SEMESTERS = [
 export type Semester = typeof SEMESTERS[number];
 
 export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
+  "Science & Humanities": {
+    "Semester 1": [
+      "Basic Mathematics",
+      "Basic Science",
+      "Communication Skills (English)",
+      "Fundamentals of ICT",
+      "Engineering Graphics",
+      "Engineering Workshop Practice",
+      "Yoga and Meditation"
+    ],
+    "Semester 2": [
+      "Applied Mathematics",
+      "Professional Communication",
+      "Programming in C",
+      "Basic Electrical and Electronics Engineering",
+      "Electronic Components and Devices",
+      "Building Construction",
+      "Engineering Mechanics",
+      "Surveying",
+      "Basic Manufacturing Processes",
+      "Engineering Materials",
+      "Social and Life Skills"
+    ],
+    "Semester 3": [],
+    "Semester 4": [],
+    "Semester 5": [],
+    "Semester 6": []
+  },
   "Computer Engineering": {
     "Semester 1": [
       "Basic Mathematics",
@@ -72,7 +101,7 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
       "Management"
     ]
   },
-  "Electronics Engineering": {
+  "Electronics & Tele. Comm. Engineering": {
     "Semester 1": [
       "Basic Mathematics",
       "Basic Science",
@@ -174,7 +203,7 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
       "Entrepreneurship Development"
     ]
   },
-  "Civil Engineering": {
+  "Civil & Rural Engineering": {
     "Semester 1": [
       "Basic Mathematics",
       "Basic Science",
@@ -277,3 +306,4 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
     ]
   }
 };
+
