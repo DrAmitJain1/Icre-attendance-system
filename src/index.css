@@ -836,6 +836,157 @@ tr:hover td {
   font-size: 0.7rem !important;
 }
 
+/* --- Excel Import UI --- */
+.sa-import-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sa-import-divider::before,
+.sa-import-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sa-import-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sa-import-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sa-import-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.sa-template-btn {
+  height: 32px;
+  padding: 0 0.7rem !important;
+  font-size: 0.78rem !important;
+  gap: 0.35rem !important;
+  white-space: nowrap;
+}
+
+.sa-import-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sa-import-hint strong {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.sa-drop-zone {
+  border: 2px dashed rgba(99, 102, 241, 0.35);
+  border-radius: 12px;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(99, 102, 241, 0.03);
+  text-align: center;
+  gap: 0.25rem;
+}
+
+.sa-drop-zone:hover {
+  border-color: rgba(99, 102, 241, 0.65);
+  background: rgba(99, 102, 241, 0.07);
+  transform: translateY(-1px);
+}
+
+.sa-drop-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sa-drop-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.sa-import-preview {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sa-import-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sa-import-preview-count {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.sa-import-table-wrap {
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: 8px;
+}
+
+.sa-import-invalid-row {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.sa-import-ok {
+  color: #10b981;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.sa-import-err {
+  color: #ef4444;
+  font-size: 0.78rem;
+}
+
+/* Tiny spinner for import button */
+.spinner-sm {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 /* --- Principal Dashboard Specific Classes --- */
 .pd-page {
   display: flex;

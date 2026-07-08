@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
 import { 
   getPrincipals, 
   addPrincipal, 
@@ -25,7 +26,12 @@ import {
   Layers,
   Edit2,
   Check,
-  X
+  X,
+  Upload,
+  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle2,
+  Download
 } from "lucide-react";
 
 export const SuperAdminPanel: React.FC = () => {
@@ -46,6 +52,14 @@ export const SuperAdminPanel: React.FC = () => {
   const [staffFilterDept, setStaffFilterDept] = useState<Department | "">("");
   const [sError, setSError] = useState<string | null>(null);
   const [sSuccess, setSSuccess] = useState(false);
+
+  // Excel Import State
+  type ImportRow = { name: string; department: string; valid: boolean; reason?: string };
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importUploading, setImportUploading] = useState(false);
+  const [importDone, setImportDone] = useState<{ added: number; skipped: number } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // Subjects State
   const [subjectsList, setSubjectsList] = useState<SubjectItem[]>([]);
@@ -153,6 +167,114 @@ export const SuperAdminPanel: React.FC = () => {
     } catch (err: any) {
       alert("Error removing staff: " + err.message);
     }
+  };
+
+  // Excel Import Handler
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImportError(null);
+    setImportDone(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedExts = [".xlsx", ".xls", ".csv"];
+    const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+    if (!allowedExts.includes(ext)) {
+      setImportError("Please upload a valid Excel file (.xlsx, .xls) or CSV (.csv).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target!.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const raw: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        if (raw.length === 0) {
+          setImportError("The sheet appears to be empty. Please check the file.");
+          return;
+        }
+
+        // Normalise column names — case-insensitive header matching
+        const normalise = (val: any) => String(val ?? "").trim();
+        const findCol = (row: any, ...keys: string[]) => {
+          const rowKeys = Object.keys(row);
+          for (const k of keys) {
+            const match = rowKeys.find(rk => rk.toLowerCase().replace(/\s+/g, "") === k.toLowerCase().replace(/\s+/g, ""));
+            if (match) return normalise(row[match]);
+          }
+          return "";
+        };
+
+        const parsed: ImportRow[] = raw.map((row) => {
+          const name = findCol(row, "staffname", "name", "staff", "staffmember");
+          const dept = findCol(row, "department", "dept", "departmentname");
+
+          if (!name) return { name, department: dept, valid: false, reason: "Staff name is missing" };
+          if (!dept) return { name, department: dept, valid: false, reason: "Department is missing" };
+
+          const matchedDept = DEPARTMENTS.find(
+            d => d.toLowerCase() === dept.toLowerCase()
+          );
+          if (!matchedDept) {
+            return { name, department: dept, valid: false, reason: `"${dept}" is not a valid department` };
+          }
+
+          return { name, department: matchedDept, valid: true };
+        });
+
+        setImportRows(parsed);
+      } catch (err: any) {
+        setImportError("Failed to parse the file: " + (err.message || "Unknown error"));
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleConfirmImport = async () => {
+    const validRows = importRows.filter(r => r.valid);
+    if (validRows.length === 0) {
+      setImportError("No valid rows to import.");
+      return;
+    }
+    setImportUploading(true);
+    setImportError(null);
+    let added = 0;
+    let skipped = 0;
+    for (const row of validRows) {
+      try {
+        await addStaff(row.name, row.department as Department);
+        added++;
+      } catch {
+        skipped++;
+      }
+    }
+    setImportUploading(false);
+    setImportDone({ added, skipped });
+    setImportRows([]);
+    if (importFileRef.current) importFileRef.current.value = "";
+    loadData();
+  };
+
+  const handleClearImport = () => {
+    setImportRows([]);
+    setImportDone(null);
+    setImportError(null);
+    if (importFileRef.current) importFileRef.current.value = "";
+  };
+
+  const downloadTemplate = () => {
+    const templateData = [
+      { "Staff Name": "Prof. Amit Patil", "Department": "Computer Engineering" },
+      { "Staff Name": "Prof. Priya Sharma", "Department": "Electronics Engineering" },
+      { "Staff Name": "Prof. Rahul Desai", "Department": "Mechanical Engineering" },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    ws["!cols"] = [{ wch: 30 }, { wch: 35 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Staff Import Template");
+    XLSX.writeFile(wb, "Staff_Import_Template.xlsx");
   };
 
   // Subjects handlers
@@ -346,10 +468,118 @@ export const SuperAdminPanel: React.FC = () => {
                 </select>
               </div>
               <button type="submit" className="btn btn-primary sa-submit-btn">
+                <UserPlus size={16} />
                 Add Staff
               </button>
             </form>
+
+            {/* --- Excel Bulk Import --- */}
+            <div className="sa-import-divider">
+              <span>or</span>
+            </div>
+
+            <div className="sa-import-section">
+              <div className="sa-import-header">
+                <h4 className="sa-import-title">
+                  <FileSpreadsheet size={16} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
+                  <span>Bulk Import via Excel</span>
+                </h4>
+                <button className="btn btn-secondary sa-template-btn" onClick={downloadTemplate} type="button" title="Download template Excel file">
+                  <Download size={14} />
+                  <span>Download Template</span>
+                </button>
+              </div>
+
+              <p className="sa-import-hint">
+                Upload an Excel / CSV file with two columns: <strong>Staff Name</strong> and <strong>Department</strong>. Column names are case-insensitive.
+              </p>
+
+              <div className="sa-drop-zone" onClick={() => importFileRef.current?.click()}>
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleImportFile}
+                  style={{ display: "none" }}
+                  id="staffImportFile"
+                />
+                <Upload size={28} style={{ color: "var(--accent-blue)", marginBottom: "0.5rem" }} />
+                <span className="sa-drop-label">Click to choose file</span>
+                <span className="sa-drop-sub">.xlsx, .xls or .csv</span>
+              </div>
+
+              {importError && (
+                <div className="sa-msg sa-msg-error" style={{ marginTop: "0.75rem" }}>
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                  {importError}
+                </div>
+              )}
+
+              {importDone && (
+                <div className="sa-msg sa-msg-success" style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                  Import complete — <strong>{importDone.added}</strong> staff added{importDone.skipped > 0 ? `, ${importDone.skipped} skipped` : ""}.
+                </div>
+              )}
+
+              {importRows.length > 0 && (
+                <div className="sa-import-preview">
+                  <div className="sa-import-preview-header">
+                    <span className="sa-import-preview-count">
+                      Preview: {importRows.filter(r => r.valid).length} valid / {importRows.filter(r => !r.valid).length} invalid out of {importRows.length} rows
+                    </span>
+                    <button className="btn btn-secondary" style={{ height: "30px", padding: "0 0.6rem", fontSize: "0.75rem" }} onClick={handleClearImport} type="button">
+                      <X size={12} /> Clear
+                    </button>
+                  </div>
+
+                  <div className="table-wrapper sa-import-table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th style={{ width: "28px" }}></th>
+                          <th>Staff Name</th>
+                          <th>Department</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importRows.map((row, idx) => (
+                          <tr key={idx} className={row.valid ? "" : "sa-import-invalid-row"}>
+                            <td style={{ textAlign: "center" }}>
+                              {row.valid
+                                ? <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} />
+                                : <AlertTriangle size={14} style={{ color: "var(--accent-red)" }} />
+                              }
+                            </td>
+                            <td className="sa-td-bold">{row.name || <em style={{ color: "var(--text-muted)" }}>—</em>}</td>
+                            <td>{row.department || <em style={{ color: "var(--text-muted)" }}>—</em>}</td>
+                            <td className={row.valid ? "sa-import-ok" : "sa-import-err"}>
+                              {row.valid ? "✓ Ready" : row.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <button
+                    className="btn btn-primary sa-submit-btn"
+                    onClick={handleConfirmImport}
+                    disabled={importUploading || importRows.filter(r => r.valid).length === 0}
+                    type="button"
+                    style={{ marginTop: "0.75rem" }}
+                  >
+                    {importUploading
+                      ? <><div className="spinner-sm"></div> Importing...</>
+                      : <><Upload size={15} /> Import {importRows.filter(r => r.valid).length} Staff Members</>
+                    }
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+
 
           {/* List Table */}
           <div className="glass-card">
