@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Attendance System</title>
+    <!-- Include SheetJS for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        /* Navigation / Tabs */
+        .navbar {
+            background-color: #2c3e50;
+            padding: 15px 20px;
+            display: flex;
+            gap: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .nav-btn {
+            background-color: transparent;
+            color: white;
+            border: 2px solid #34495e;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        .nav-btn:hover, .nav-btn.active {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+
+        /* Container layouts */
+        .container {
+            padding: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+            display: none; /* Hidden by default, toggled via JS */
+        }
+        .container.active {
+            display: block;
+        }
+        
+        .card {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .btn-submit {
+            grid-column: span 2;
+            padding: 12px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-submit:hover { background-color: #219653; }
+
+        /* Dashboard Styles */
+        .dashboard-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            background: #3498db;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 1;
+            text-align: center;
+        }
+        .stat-box h3 { margin: 0; font-size: 32px; }
+        .stat-box p { margin: 5px 0 0; font-size: 14px; opacity: 0.9; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #2c3e50;
+        }
+        .dashboard-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-export {
+            background-color: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+    <button class="nav-btn active" onclick="switchTab('staff')">Staff Entry</button>
+    <button class="nav-btn" onclick="switchTab('principal')">Principal Dashboard</button>
+</nav>
+
+<!-- Staff Entry View -->
+<div id="staffView" class="container active">
+    <div class="card">
+        <h2>Enter Daily Attendance</h2>
+        <form id="attendanceForm" class="form-grid">
+            <div class="form-group">
+                <label for="academicYear">Academic Year:</label>
+                <input type="text" id="academicYear" required>
+            </div>
+            <div class="form-group">
+                <label for="department">Department:</label>
+                <select id="department" required>
+                    <option value="Computer Engineering">Computer Engineering</option>
+                    <option value="Electronic Engineering">Electronic Engineering</option>
+                    <option value="Electrical Engineering">Electrical Engineering</option>
+                    <option value="Civil Engineering">Civil Engineering</option>
+                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="semester">Semester:</label>
+                <select id="semester" required></select>
+            </div>
+            <div class="form-group">
+                <label for="staffName">Staff Name:</label>
+                <input type="text" id="staffName" placeholder="Enter your name" required>
+            </div>
+            <div class="form-group">
+                <label for="attendanceDate">Date:</label>
+                <input type="date" id="attendanceDate" required>
+            </div>
+            <div class="form-group">
+                <label for="course">Course / Subject:</label>
+                <input type="text" id="course" placeholder="e.g., Data Structures" required>
+            </div>
+            <div class="form-group full-width">
+                <label for="absentNos">Absent Roll Numbers (comma separated):</label>
+                <input type="text" id="absentNos" placeholder="e.g., 5, 12, 19" required>
+            </div>
+            <button type="submit" class="btn-submit">Save Record</button>
+        </form>
+    </div>
+</div>
+
+<!-- Principal Dashboard View -->
+<div id="principalView" class="container">
+    <div class="card">
+        <h2>Principal Dashboard Overview</h2>
+        
+        <div class="dashboard-stats">
+            <div class="stat-box">
+                <h3 id="totalClasses">0</h3>
+                <p>Classes Logged</p>
+            </div>
+            <div class="stat-box" style="background: #e67e22;">
+                <h3 id="totalAbsences">0</h3>
+                <p>Total Absences Recorded</p>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table id="dashboardTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Staff Name</th>
+                        <th>Dept & Sem</th>
+                        <th>Course</th>
+                        <th>Absentees</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data populated via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="dashboard-actions">
+            <button class="btn-export" onclick="downloadMasterExcel()">Download Master Excel Report</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. Initialization and Setup ---
+    document.addEventListener("DOMContentLoaded", () => {
+        setupFormDefaults();
+        loadDashboardData();
+    });
+
+    function setupFormDefaults() {
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth(); // 0-11
+        
+        // Smart Academic Year Logic (If before June, it's the previous year)
+        if(currentMonth < 5) {
+            document.getElementById('academicYear').value = `${currentYear - 1}-${currentYear}`;
+        } else {
+            document.getElementById('academicYear').value = `${currentYear}-${currentYear + 1}`;
+        }
+        
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        document.getElementById('attendanceDate').value = `${yyyy}-${mm}-${dd}`;
+
+        const semSelect = document.getElementById('semester');
+        for (let i = 1; i <= 6; i++) {
+            let option = document.createElement('option');
+            option.value = `Semester ${i}`;
+            option.textContent = `Semester ${i}`;
+            semSelect.appendChild(option);
+        }
+    }
+
+    // --- 2. Tab Navigation Logic ---
+    function switchTab(tabName) {
+        // Update Buttons
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        if(tabName === 'staff') document.querySelectorAll('.nav-btn')[0].classList.add('active');
+        if(tabName === 'principal') document.querySelectorAll('.nav-btn')[1].classList.add('active');
+
+        // Update Views
+        document.getElementById('staffView').classList.remove('active');
+        document.getElementById('principalView').classList.remove('active');
+        
+        document.getElementById(`${tabName}View`).classList.add('active');
+        
+        // Refresh dashboard data when viewing it
+        if(tabName === 'principal') {
+            loadDashboardData();
+        }
+    }
+
+    // --- 3. Data Handling (Local Storage) ---
+    function getStoredRecords() {
+        const records = localStorage.getItem('attendanceRecords');
+        return records ? JSON.parse(records) : [];
+    }
+
+    document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Create a new record object
+        const newRecord = {
+            "Academic Year": document.getElementById('academicYear').value,
+            "Department": document.getElementById('department').value,
+            "Semester": document.getElementById('semester').value,
+            "Staff Name": document.getElementById('staffName').value,
+            "Date": document.getElementById('attendanceDate').value,
+            "Course/Subject": document.getElementById('course').value,
+            "Absent Roll Nos": document.getElementById('absentNos').value
+        };
+
+        // Fetch existing, push new, save back to storage
+        const records = getStoredRecords();
+        records.push(newRecord);
+        localStorage.setItem('attendanceRecords', JSON.stringify(records));
+
+        alert("Record saved successfully! You can view it in the Principal Dashboard.");
+        
+        // Clear course and absent fields for quick consecutive entry
+        document.getElementById('course').value = '';
+        document.getElementById('absentNos').value = '';
+    });
+
+    // --- 4. Dashboard Logic ---
+    function loadDashboardData() {
+        const records = getStoredRecords();
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = ''; // clear existing rows
+
+        let totalClasses = records.length;
+        let totalAbsences = 0;
+
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No records found. Enter data in the Staff tab.</td></tr>';
+        } else {
+            // Populate table in reverse order (newest first)
+            [...records].reverse().forEach(record => {
+                // Calculate absences by splitting the comma separated string
+                const absenteesArray = record["Absent Roll Nos"].split(',').filter(x => x.trim() !== '');
+                totalAbsences += absenteesArray.length;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${record["Date"]}</td>
+                    <td>${record["Staff Name"]}</td>
+                    <td>${record["Department"]} (${record["Semester"]})</td>
+                    <td>${record["Course/Subject"]}</td>
+                    <td>${record["Absent Roll Nos"]}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('totalClasses').innerText = totalClasses;
+        document.getElementById('totalAbsences').innerText = totalAbsences;
+    }
+
+    // --- 5. Excel Export (Master Sheet) ---
+    function downloadMasterExcel() {
+        const records = getStoredRecords();
+        if (records.length === 0) {
+            alert("No data to export!");
+            return;
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet(records);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Master_Attendance");
+
+        // Set column widths
+        worksheet['!cols'] = [
+            { wch: 15 }, { wch: 22 }, { wch: 12 }, { wch: 20 }, 
+            { wch: 15 }, { wch: 20 }, { wch: 25 }
+        ];
+
+        XLSX.writeFile(workbook, "Master_School_Attendance.xlsx");
+    }
+</script>
+
+</body>
+</html>
