@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { 
   subscribeToAttendanceRecords, 
+  subscribeToStudents,
   getSubjects,
-  type AttendanceRecord 
+  type AttendanceRecord,
+  type Student
 } from "../firebase";
 import { DEPARTMENTS, SEMESTERS, type Department, type Semester } from "../subjects";
 import { 
@@ -15,15 +17,26 @@ import {
   AlertCircle,
   FileSpreadsheet,
   TrendingDown,
+  TrendingUp,
   Activity,
   Percent,
-  UserX
+  UserX,
+  Calendar
 } from "lucide-react";
 import * as XLSX from "xlsx";
+
+const parseDateToComparable = (dateStr: string) => {
+  const parts = dateStr.split("/");
+  if (parts.length === 3) {
+    return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`; // "YYYY-MM-DD"
+  }
+  return dateStr;
+};
 
 export const PrincipalDashboard: React.FC = () => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<AttendanceRecord[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,23 +49,33 @@ export const PrincipalDashboard: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState<Department | "">("");
   const [selectedSem, setSelectedSem] = useState<Semester | "">("");
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedLectureType, setSelectedLectureType] = useState("");
   const [searchStaff, setSearchStaff] = useState("");
   const [subjectsList, setSubjectsList] = useState<string[]>([]);
 
   // Defaulters Filter State
   const [selectedMonth, setSelectedMonth] = useState("");
 
-  // Subscribe to real-time logs on mount & set default filters
+  // Subscribe to real-time logs and students on mount & set default filters
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeToAttendanceRecords(
+    const unsubscribeLogs = subscribeToAttendanceRecords(
       (data) => {
         setRecords(data);
         setLoading(false);
       },
       (err) => {
-        setError(`Database Connection Error: ${err.message}. Make sure you have created and enabled a Cloud Firestore database in your Firebase project (https://console.firebase.google.com/).`);
+        setError(`Database Connection Error: ${err.message}. Make sure you have created and enabled a Cloud Firestore database in your Firebase project.`);
         setLoading(false);
+      }
+    );
+
+    const unsubscribeStudents = subscribeToStudents(
+      (data) => {
+        setStudents(data);
+      },
+      (err) => {
+        console.error("Database Student Subscription Error:", err);
       }
     );
 
@@ -62,7 +85,10 @@ export const PrincipalDashboard: React.FC = () => {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     setSelectedMonth(`${yyyy}-${mm}`);
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeLogs();
+      unsubscribeStudents();
+    };
   }, []);
 
   // Reset semester if department changes to Science & Humanities and semester is > Sem 2
@@ -95,10 +121,10 @@ export const PrincipalDashboard: React.FC = () => {
     let result = [...records];
 
     if (startDate) {
-      result = result.filter(r => r.date >= startDate);
+      result = result.filter(r => parseDateToComparable(r.date) >= startDate);
     }
     if (endDate) {
-      result = result.filter(r => r.date <= endDate);
+      result = result.filter(r => parseDateToComparable(r.date) <= endDate);
     }
     if (selectedDept) {
       result = result.filter(r => r.department === selectedDept);
@@ -109,57 +135,127 @@ export const PrincipalDashboard: React.FC = () => {
     if (selectedSubject) {
       result = result.filter(r => r.subject === selectedSubject);
     }
+    if (selectedLectureType) {
+      result = result.filter(r => (r.lectureType || "Lecture") === selectedLectureType);
+    }
     if (searchStaff.trim()) {
       const search = searchStaff.toLowerCase();
       result = result.filter(r => r.staffName.toLowerCase().includes(search));
     }
 
     setFilteredRecords(result);
-  }, [records, startDate, endDate, selectedDept, selectedSem, selectedSubject, searchStaff]);
+  }, [records, startDate, endDate, selectedDept, selectedSem, selectedSubject, selectedLectureType, searchStaff]);
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
   // Calculate Statistics (based on complete filtered set)
   const totalClasses = filteredRecords.length;
+  const totalLectures = filteredRecords.filter(r => (r.lectureType || "Lecture") === "Lecture").length;
+  const totalPracticals = filteredRecords.filter(r => r.lectureType === "Practical").length;
   const totalAbsences = filteredRecords.reduce((acc, curr) => {
-    if (!curr.absentNos.trim()) return acc;
-    return acc + curr.absentNos.split(",").filter(n => n.trim() !== "").length;
+    const abs = curr.absentNos || "";
+    if (!abs.trim()) return acc;
+    return acc + abs.split(",").filter(n => n.trim() !== "").length;
   }, 0);
 
-  const avgAbsences = totalClasses > 0 ? (totalAbsences / totalClasses).toFixed(1) : "0";
-
-  // Department-wise Absences (for visual progress charts)
-  const getDeptAbsences = () => {
-    const mapping: Record<string, number> = {};
-    DEPARTMENTS.forEach(d => {
-      mapping[d] = 0;
+  // Department-wise Attendance Performance
+  const getDeptPerformance = () => {
+    const mapping: Record<string, { presentSum: number; totalSum: number }> = {};
+    DEPARTMENTS.filter(d => d !== "Science & Humanities").forEach(d => {
+      mapping[d] = { presentSum: 0, totalSum: 0 };
     });
 
     filteredRecords.forEach(r => {
-      if (r.absentNos.trim()) {
-        const count = r.absentNos.split(",").filter(n => n.trim() !== "").length;
-        mapping[r.department] = (mapping[r.department] || 0) + count;
+      // Find class size for this record
+      const classSize = students.filter(s => s.department === r.department && s.semester === r.semester).length || 15;
+      const absCount = r.absentNos.trim() 
+        ? r.absentNos.split(",").map(n => n.trim()).filter(Boolean).length 
+        : 0;
+      const presentCount = Math.max(0, classSize - absCount);
+
+      if (mapping[r.department]) {
+        mapping[r.department].presentSum += presentCount;
+        mapping[r.department].totalSum += classSize;
       }
     });
 
     return mapping;
   };
 
-  const deptStats = getDeptAbsences();
-  const maxDeptAbsence = Math.max(...Object.values(deptStats), 1); // Avoid division by 0
+  const deptPerformance = getDeptPerformance();
 
-  const getHighestAbsenceDept = () => {
+  const getHighestAttendanceDept = () => {
     let maxDept = "None";
-    let maxVal = 0;
-    Object.entries(deptStats).forEach(([dept, val]) => {
-      if (val > maxVal) {
-        maxVal = val;
+    let maxRate = 0;
+    Object.entries(deptPerformance).forEach(([dept, data]) => {
+      const rate = data.totalSum > 0 ? (data.presentSum / data.totalSum * 100) : 0;
+      if (rate > maxRate) {
+        maxRate = rate;
         maxDept = dept;
       }
     });
-    return maxVal > 0 ? maxDept : "None";
+    return maxRate > 0 ? `${maxDept.split(" ")[0]} (${Math.round(maxRate)}%)` : "None";
   };
-  const highestAbsenceDept = getHighestAbsenceDept();
+  
+  const highestAttendanceDept = getHighestAttendanceDept();
 
   const attendanceRate = totalClasses > 0 ? (Math.max(0, 100 - (totalAbsences / (totalClasses * 60)) * 100)).toFixed(1) + "%" : "100%";
+
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+    
+    // Start date: YYYY-MM-01
+    const startDateStr = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    
+    // End date: YYYY-MM-lastDay
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    
+    return { startDateStr, endDateStr, monthLabel: monthNames[month] };
+  };
+
+  const getDeptPerformanceForCurrentMonth = () => {
+    const { startDateStr, endDateStr } = getCurrentMonthRange();
+    
+    // Initialize structure
+    const stats: Record<string, { presentSum: number; totalSum: number }> = {};
+    DEPARTMENTS.filter(d => d !== "Science & Humanities").forEach(dept => {
+      stats[dept] = { presentSum: 0, totalSum: 0 };
+    });
+
+    records.forEach(r => {
+      const compDate = parseDateToComparable(r.date);
+      // Check if the record date falls within the current month
+      if (compDate >= startDateStr && compDate <= endDateStr) {
+        const classSize = students.filter(s => s.department === r.department && s.semester === r.semester).length || 15;
+        const absCount = r.absentNos.trim() 
+          ? r.absentNos.split(",").map(n => n.trim()).filter(Boolean).length 
+          : 0;
+        const presentCount = Math.max(0, classSize - absCount);
+
+        if (stats[r.department]) {
+          stats[r.department].presentSum += presentCount;
+          stats[r.department].totalSum += classSize;
+        }
+      }
+    });
+
+    return Object.entries(stats).map(([dept, data]) => {
+      const rate = data.totalSum > 0 ? Math.round((data.presentSum / data.totalSum) * 100) : 100;
+      return {
+        department: dept,
+        rate
+      };
+    });
+  };
+
+  const currentMonthDeptStats = getDeptPerformanceForCurrentMonth();
+  const currentMonthLabel = getCurrentMonthRange().monthLabel;
 
   // --- STUDENT DEFAULTER LOGIC ---
   const calculateDefaulters = () => {
@@ -191,6 +287,7 @@ export const PrincipalDashboard: React.FC = () => {
 
     const list: Array<{
       rollNo: number;
+      name: string;
       department: string;
       semester: string;
       subject: string;
@@ -199,34 +296,73 @@ export const PrincipalDashboard: React.FC = () => {
       rate: number;
     }> = [];
 
-    // 4. For each group and student Roll Number 1-60, calculate rate
+    // 4. For each group and actual student, calculate rate
     Object.values(recordsGrouped).forEach(({ dept, sem, subj, records: groupRecords }) => {
       const L = groupRecords.length; // total lectures held
       
-      for (let R = 1; R <= 60; R++) {
-        let A = 0; // absences count
-        
-        groupRecords.forEach(rec => {
-          const absList = rec.absentNos.split(",")
-            .map(x => parseInt(x.trim(), 10))
-            .filter(x => !isNaN(x));
-          
-          if (absList.includes(R)) {
-            A++;
+      const deptSemStudents = students.filter(
+        s => s.department === dept && s.semester === sem
+      );
+
+      if (deptSemStudents.length > 0) {
+        deptSemStudents.forEach(student => {
+          const R = parseInt(student.rollNo.trim(), 10);
+          if (isNaN(R)) return;
+
+          let A = 0; // absences count
+          groupRecords.forEach(rec => {
+            const abs = rec.absentNos || "";
+            const absList = abs.split(",")
+              .map(x => parseInt(x.trim(), 10))
+              .filter(x => !isNaN(x));
+            
+            if (absList.includes(R)) {
+              A++;
+            }
+          });
+
+          const rate = parseFloat(((L - A) / L * 100).toFixed(1));
+          if (rate < 75.0) {
+            list.push({
+              rollNo: R,
+              name: student.name,
+              department: dept,
+              semester: sem,
+              subject: subj,
+              classesHeld: L,
+              absences: A,
+              rate
+            });
           }
         });
-
-        const rate = parseFloat(((L - A) / L * 100).toFixed(1));
-        if (rate < 75.0) {
-          list.push({
-            rollNo: R,
-            department: dept,
-            semester: sem,
-            subject: subj,
-            classesHeld: L,
-            absences: A,
-            rate
+      } else {
+        // Fallback for classes with no students added yet
+        for (let R = 1; R <= 60; R++) {
+          let A = 0; // absences count
+          groupRecords.forEach(rec => {
+            const abs = rec.absentNos || "";
+            const absList = abs.split(",")
+              .map(x => parseInt(x.trim(), 10))
+              .filter(x => !isNaN(x));
+            
+            if (absList.includes(R)) {
+              A++;
+            }
           });
+
+          const rate = parseFloat(((L - A) / L * 100).toFixed(1));
+          if (rate < 75.0) {
+            list.push({
+              rollNo: R,
+              name: `Roll No ${R}`,
+              department: dept,
+              semester: sem,
+              subject: subj,
+              classesHeld: L,
+              absences: A,
+              rate
+            });
+          }
         }
       }
     });
@@ -260,6 +396,7 @@ export const PrincipalDashboard: React.FC = () => {
 
     const list: Array<{
       rollNo: number;
+      name: string;
       department: string;
       semester: string;
       subject: string;
@@ -268,34 +405,73 @@ export const PrincipalDashboard: React.FC = () => {
       rate: number;
     }> = [];
 
-    // 3. For each group and student Roll Number 1-60, calculate rate
+    // 3. For each group and actual student, calculate rate
     Object.values(recordsGrouped).forEach(({ dept, sem, subj, records: groupRecords }) => {
       const L = groupRecords.length; // total lectures held
       
-      for (let R = 1; R <= 60; R++) {
-        let A = 0; // absences count
-        
-        groupRecords.forEach(rec => {
-          const absList = rec.absentNos.split(",")
-            .map(x => parseInt(x.trim(), 10))
-            .filter(x => !isNaN(x));
-          
-          if (absList.includes(R)) {
-            A++;
+      const deptSemStudents = students.filter(
+        s => s.department === dept && s.semester === sem
+      );
+
+      if (deptSemStudents.length > 0) {
+        deptSemStudents.forEach(student => {
+          const R = parseInt(student.rollNo.trim(), 10);
+          if (isNaN(R)) return;
+
+          let A = 0; // absences count
+          groupRecords.forEach(rec => {
+            const abs = rec.absentNos || "";
+            const absList = abs.split(",")
+              .map(x => parseInt(x.trim(), 10))
+              .filter(x => !isNaN(x));
+            
+            if (absList.includes(R)) {
+              A++;
+            }
+          });
+
+          const rate = parseFloat(((L - A) / L * 100).toFixed(1));
+          if (rate < 75.0) {
+            list.push({
+              rollNo: R,
+              name: student.name,
+              department: dept,
+              semester: sem,
+              subject: subj,
+              classesHeld: L,
+              absences: A,
+              rate
+            });
           }
         });
-
-        const rate = parseFloat(((L - A) / L * 100).toFixed(1));
-        if (rate < 75.0) {
-          list.push({
-            rollNo: R,
-            department: dept,
-            semester: sem,
-            subject: subj,
-            classesHeld: L,
-            absences: A,
-            rate
+      } else {
+        // Fallback for classes with no students added yet
+        for (let R = 1; R <= 60; R++) {
+          let A = 0; // absences count
+          groupRecords.forEach(rec => {
+            const abs = rec.absentNos || "";
+            const absList = abs.split(",")
+              .map(x => parseInt(x.trim(), 10))
+              .filter(x => !isNaN(x));
+            
+            if (absList.includes(R)) {
+              A++;
+            }
           });
+
+          const rate = parseFloat(((L - A) / L * 100).toFixed(1));
+          if (rate < 75.0) {
+            list.push({
+              rollNo: R,
+              name: `Roll No ${R}`,
+              department: dept,
+              semester: sem,
+              subject: subj,
+              classesHeld: L,
+              absences: A,
+              rate
+            });
+          }
         }
       }
     });
@@ -325,9 +501,11 @@ export const PrincipalDashboard: React.FC = () => {
       "Start Time": r.startTime,
       "End Time": r.endTime,
       "Staff Name": r.staffName,
-      "Department": r.department,
+      "Staff Department": r.staffDepartment || r.department,
+      "Lecture Department": r.department,
       "Semester": r.semester,
       "Subject": r.subject,
+      "Lecture Type": r.lectureType || "Lecture",
       "Absent Roll Numbers": r.absentNos,
       "Total Absentees": r.absentNos ? r.absentNos.split(",").filter(x => x.trim() !== "").length : 0
     }));
@@ -338,7 +516,7 @@ export const PrincipalDashboard: React.FC = () => {
 
     worksheet["!cols"] = [
       { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 22 }, 
-      { wch: 22 }, { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 15 }
+      { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 15 }
     ];
 
     const prefix = exportType === "filtered" ? "Filtered" : "Master";
@@ -369,6 +547,7 @@ export const PrincipalDashboard: React.FC = () => {
 
     const payload = targetList.map(d => ({
       "Roll Number": `Roll No ${d.rollNo}`,
+      "Student Name": d.name || "N/A",
       "Department": exportType === "filtered" ? selectedDept : d.department,
       "Semester": exportType === "filtered" ? selectedSem : d.semester,
       "Subject": d.subject,
@@ -398,9 +577,9 @@ export const PrincipalDashboard: React.FC = () => {
     <div className="pd-page">
       {/* Page Heading */}
       <div className="pd-heading">
-        <h2>Principal Analytics Dashboard</h2>
+        <h2>Institutional Attendance & Compliance Portal</h2>
         <p className="subtitle" style={{ marginBottom: 0 }}>
-          Real-time updates of class completion and student absence analytics.
+          Real-time session verification, student compliance analytics, and academic attendance execution reports.
         </p>
       </div>
 
@@ -413,13 +592,23 @@ export const PrincipalDashboard: React.FC = () => {
 
       {/* Stats Cards Row */}
       <div className="dashboard-stats">
-        <div className="stat-box">
-          <div className="stat-icon">
-            <Layers size={22} />
+        <div className="stat-box" style={{ background: "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%)", borderColor: "rgba(59, 130, 246, 0.25)" }}>
+          <div className="stat-icon" style={{ color: "#3b82f6" }}>
+            <Layers size={20} />
           </div>
           <div className="stat-info">
-            <span className="stat-number">{totalClasses}</span>
-            <span className="stat-label">Classes Logged</span>
+            <span className="stat-number">{totalLectures}</span>
+            <span className="stat-label">Lectures Logged</span>
+          </div>
+        </div>
+
+        <div className="stat-box" style={{ background: "linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(234, 88, 12, 0.08) 100%)", borderColor: "rgba(249, 115, 22, 0.25)" }}>
+          <div className="stat-icon" style={{ color: "#f97316" }}>
+            <Calendar size={20} />
+          </div>
+          <div className="stat-info">
+            <span className="stat-number">{totalPracticals}</span>
+            <span className="stat-label">Practicals Logged</span>
           </div>
         </div>
 
@@ -428,8 +617,8 @@ export const PrincipalDashboard: React.FC = () => {
             <Users size={22} />
           </div>
           <div className="stat-info">
-            <span className="stat-number">{totalAbsences}</span>
-            <span className="stat-label">Total Absences</span>
+            <span className="stat-number">{totalClasses}</span>
+            <span className="stat-label">Total Sessions</span>
           </div>
         </div>
 
@@ -443,57 +632,57 @@ export const PrincipalDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="stat-box stat-warning">
-          <div className="stat-icon">
+        <div className="stat-box stat-success" style={{ background: "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.08) 100%)", borderColor: "rgba(16, 185, 129, 0.25)" }}>
+          <div className="stat-icon" style={{ color: "#10b981" }}>
             <Activity size={22} />
           </div>
           <div className="stat-info">
-            <span className="stat-number">{avgAbsences}</span>
-            <span className="stat-label">Avg Absences/Class</span>
-          </div>
-        </div>
-
-        <div className="stat-box stat-danger">
-          <div className="stat-icon">
-            <AlertCircle size={22} />
-          </div>
-          <div className="stat-info">
-            <span className="stat-number pd-dept-stat" title={highestAbsenceDept}>
-              {highestAbsenceDept}
+            <span className="stat-number pd-dept-stat" style={{ fontSize: "1.1rem" }} title={highestAttendanceDept}>
+              {highestAttendanceDept}
             </span>
-            <span className="stat-label">Highest Absence Dept</span>
+            <span className="stat-label">Top Attending Dept</span>
           </div>
         </div>
       </div>
 
-      {/* Department Breakdown */}
+      {/* Monthly Attendance Performance */}
       <div className="glass-card">
         <h3 className="pd-section-title">
-          <TrendingDown size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
-          <span>Absences Registered by Department</span>
+          <TrendingUp size={18} style={{ color: "var(--accent-green)", flexShrink: 0 }} />
+          <span>{currentMonthLabel} Compliance Rate (Department-wise Performance)</span>
         </h3>
-        <div className="department-list">
-          {DEPARTMENTS.map((dept) => {
-            const val = deptStats[dept] || 0;
-            const percentage = Math.round((val / maxDeptAbsence) * 100);
-            return (
-              <div key={dept} className="dept-progress-card">
-                <div className="dept-header">
-                  <span className="dept-name">{dept}</span>
-                  <span className="dept-stat-count">{val} Absences</span>
+        <div className="department-list" style={{ marginTop: "1rem" }}>
+          {currentMonthDeptStats.length === 0 ? (
+            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", textAlign: "center", padding: "1rem" }}>
+              No departmental attendance metrics recorded for this month.
+            </p>
+          ) : (
+            currentMonthDeptStats.map((item) => {
+              const barColor = item.rate >= 90 ? "linear-gradient(90deg, #10b981, #3b82f6)" : "linear-gradient(90deg, #f59e0b, #3b82f6)";
+              return (
+                <div key={item.department} className="dept-progress-card">
+                  <div className="dept-header">
+                    <span className="dept-name" style={{ fontWeight: 600 }}>{item.department}</span>
+                    <span className="dept-stat-count" style={{ color: "var(--accent-green)", fontWeight: 800 }}>
+                      {item.rate}% Attendance
+                    </span>
+                  </div>
+                  <div className="progress-track" style={{ height: "10px", borderRadius: "6px", backgroundColor: "rgba(255, 255, 255, 0.03)" }}>
+                    <div
+                      className="progress-bar"
+                      style={{
+                        width: `${item.rate}%`,
+                        height: "100%",
+                        borderRadius: "6px",
+                        background: barColor,
+                        transition: "width 0.5s ease"
+                      }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="progress-track">
-                  <div
-                    className="progress-bar"
-                    style={{
-                      width: `${percentage}%`,
-                      background: dept === "Computer Engineering" ? "var(--grad-primary)" : "linear-gradient(135deg, #10b981 0%, #3b82f6 100%)"
-                    }}
-                  ></div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -506,14 +695,14 @@ export const PrincipalDashboard: React.FC = () => {
             onClick={() => setSection("logs")}
           >
             <FileSpreadsheet size={16} />
-            <span>Daily Attendance Logs</span>
+            <span>Academic Attendance Registry</span>
           </button>
           <button
             className={`nav-btn ${section === "defaulters" ? "active" : ""}`}
             onClick={() => setSection("defaulters")}
           >
             <UserX size={16} />
-            <span>Monthly Defaulter List (&lt; 75%)</span>
+            <span>Defaulters Registry (&lt; 75% Attendance)</span>
           </button>
         </div>
 
@@ -557,7 +746,7 @@ export const PrincipalDashboard: React.FC = () => {
                   className="pd-filter-input"
                 >
                   <option value="">All Departments</option>
-                  {DEPARTMENTS.map((d) => (
+                  {DEPARTMENTS.filter(d => d !== "Science & Humanities").map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
@@ -590,6 +779,20 @@ export const PrincipalDashboard: React.FC = () => {
                   {subjectsList.map((sub) => (
                     <option key={sub} value={sub}>{sub}</option>
                   ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="filterLectureType" className="pd-filter-label">Session Type</label>
+                <select
+                  id="filterLectureType"
+                  value={selectedLectureType}
+                  onChange={(e) => setSelectedLectureType(e.target.value)}
+                  className="pd-filter-input"
+                >
+                  <option value="">All Session Types</option>
+                  <option value="Lecture">Lectures Only</option>
+                  <option value="Practical">Practicals Only</option>
                 </select>
               </div>
 
@@ -679,12 +882,36 @@ export const PrincipalDashboard: React.FC = () => {
                           <td className="pd-time-cell">
                             {r.startTime} - {r.endTime}
                           </td>
-                          <td style={{ fontWeight: 500 }}>{r.staffName}</td>
+                          <td style={{ fontWeight: 500 }}>
+                            <div>{r.staffName}</div>
+                            {r.staffDepartment && (
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 400 }}>
+                                Dept: {r.staffDepartment}
+                              </div>
+                            )}
+                          </td>
                           <td>
                             <span className="pd-dept-text">{r.department}</span>
                             <span className="badge badge-purple pd-sem-badge">{r.semester}</span>
                           </td>
-                          <td className="pd-subject-cell">{r.subject}</td>
+                          <td className="pd-subject-cell">
+                            <div>{r.subject}</div>
+                            <span 
+                              style={{ 
+                                display: "inline-block", 
+                                fontSize: "0.7rem", 
+                                padding: "0.15rem 0.4rem", 
+                                borderRadius: "4px", 
+                                marginTop: "0.35rem", 
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                color: r.lectureType === "Practical" ? "#f97316" : "#3b82f6", 
+                                backgroundColor: r.lectureType === "Practical" ? "rgba(249, 115, 22, 0.08)" : "rgba(59, 130, 246, 0.08)" 
+                              }}
+                            >
+                              {r.lectureType || "Lecture"}
+                            </span>
+                          </td>
                           <td style={{ textAlign: "center", fontWeight: "bold" }}>
                             <span
                               style={{
@@ -739,7 +966,7 @@ export const PrincipalDashboard: React.FC = () => {
                   className="pd-filter-input"
                 >
                   <option value="">-- Choose Department --</option>
-                  {DEPARTMENTS.map((d) => (
+                  {DEPARTMENTS.filter(d => d !== "Science & Humanities").map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
@@ -812,7 +1039,7 @@ export const PrincipalDashboard: React.FC = () => {
                       <table>
                         <thead>
                           <tr>
-                            <th>Roll No</th>
+                            <th>Student Info</th>
                             <th>Department</th>
                             <th>Sem</th>
                             <th>Subject</th>
@@ -825,7 +1052,10 @@ export const PrincipalDashboard: React.FC = () => {
                         <tbody>
                           {defaultersList.map((d, idx) => (
                             <tr key={idx} className="pd-defaulter-row">
-                              <td style={{ fontWeight: 800 }}>#{d.rollNo}</td>
+                              <td style={{ fontWeight: 800 }}>
+                                <div style={{ fontSize: "0.85rem", color: "var(--text-primary)" }}>#{d.rollNo}</div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500 }}>{d.name}</div>
+                              </td>
                               <td className="pd-dept-text">{d.department}</td>
                               <td>{d.semester}</td>
                               <td style={{ fontWeight: 600 }}>{d.subject}</td>

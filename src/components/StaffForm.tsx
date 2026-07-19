@@ -1,38 +1,121 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle } from "lucide-react";
-import { saveAttendanceRecord, getStaff, getSubjects } from "../firebase";
+import { saveAttendanceRecord, getSubjects, getStudents, subscribeToSystemSettings, type Staff, type Student } from "../firebase";
 import { DEPARTMENTS, SEMESTERS, type Department, type Semester } from "../subjects";
 
-export const StaffForm: React.FC = () => {
+interface StaffFormProps {
+  loggedInStaff: Staff;
+}
+
+export const StaffForm: React.FC<StaffFormProps> = ({ loggedInStaff }) => {
   // State for form fields
   const [academicYear, setAcademicYear] = useState("");
-  const [department, setDepartment] = useState<Department | "">("");
+  const [staffDepartment, setStaffDepartment] = useState<Department | "">("");
+  const [lectureDepartment, setLectureDepartment] = useState<Department | "">("");
   const [semester, setSemester] = useState<Semester | "">("");
   const [subject, setSubject] = useState("");
+  const [lectureType, setLectureType] = useState<"Lecture" | "Practical">("Lecture");
   const [staffName, setStaffName] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [absentNos, setAbsentNos] = useState("");
+  const [dateLocked, setDateLocked] = useState(false);
 
   // UI state
   const [subjectsList, setSubjectsList] = useState<string[]>([]);
-  const [dbStaffList, setDbStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Roster-based Attendance States
+  const [students, setStudents] = useState<Student[]>([]);
+  const [presentStatus, setPresentStatus] = useState<Record<string, boolean>>({});
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+
+  // Confirmation Modal States
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [absentListForConfirm, setAbsentListForConfirm] = useState<{ rollNo: string; name: string }[]>([]);
+
+  // Subscribe to system settings (lock / unlock date)
+  useEffect(() => {
+    const unsubscribe = subscribeToSystemSettings((settings) => {
+      setDateLocked(settings.dateLocked);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load students for interactive roster
+  useEffect(() => {
+    const loadClassStudents = async () => {
+      if (lectureDepartment && semester && academicYear) {
+        setRosterLoading(true);
+        try {
+          const list = await getStudents(lectureDepartment, semester, academicYear);
+          setStudents(list);
+          // Default all loaded students to Present (true)
+          const initialStatus: Record<string, boolean> = {};
+          list.forEach(s => {
+            initialStatus[s.rollNo] = true;
+          });
+          setPresentStatus(initialStatus);
+        } catch (err) {
+          console.error("Failed to load students roster:", err);
+        } finally {
+          setRosterLoading(false);
+        }
+      } else {
+        setStudents([]);
+        setPresentStatus({});
+      }
+    };
+    loadClassStudents();
+  }, [lectureDepartment, semester, academicYear]);
+
+  const toggleStudentStatus = (rollNo: string) => {
+    setPresentStatus(prev => ({
+      ...prev,
+      [rollNo]: !prev[rollNo]
+    }));
+  };
+
+  const markAllPresent = () => {
+    const updated: Record<string, boolean> = {};
+    students.forEach(s => {
+      updated[s.rollNo] = true;
+    });
+    setPresentStatus(updated);
+  };
+
+  const markAllAbsent = () => {
+    const updated: Record<string, boolean> = {};
+    students.forEach(s => {
+      updated[s.rollNo] = false;
+    });
+    setPresentStatus(updated);
+  };
+
   // Initialize smart defaults
   useEffect(() => {
+    if (loggedInStaff) {
+      setStaffName(loggedInStaff.name);
+      setStaffDepartment(loggedInStaff.department as Department);
+    }
+
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth(); // 0-11
     
-    // Academic Year: If before June, it's (currentYear - 1)-(currentYear)
-    if (currentMonth < 5) {
-      setAcademicYear(`${currentYear - 1}-${currentYear}`);
-    } else {
+    // Academic Year calculation matching the next year 1-1-2027 logic:
+    if (currentYear >= 2027) {
       setAcademicYear(`${currentYear}-${currentYear + 1}`);
+    } else {
+      if (currentMonth < 5) {
+        setAcademicYear(`${currentYear - 1}-${currentYear}`);
+      } else {
+        setAcademicYear(`${currentYear}-${currentYear + 1}`);
+      }
     }
 
     // Set today's date in YYYY-MM-DD
@@ -47,20 +130,14 @@ export const StaffForm: React.FC = () => {
     const formattedEnd = `${String((hour + 1) % 24).padStart(2, "0")}:00`;
     setStartTime(formattedStart);
     setEndTime(formattedEnd);
+  }, [loggedInStaff]);
 
-    // Retrieve staff name from localStorage if available
-    const savedName = localStorage.getItem("attendance_staff_name");
-    if (savedName) {
-      setStaffName(savedName);
-    }
-  }, []);
-
-  // Update subjects list whenever department or semester changes (dynamically from database)
+  // Update subjects list whenever lectureDepartment or semester changes (dynamically from database)
   useEffect(() => {
     const loadSubjectsData = async () => {
-      if (department && semester) {
+      if (lectureDepartment && semester) {
         try {
-          const list = await getSubjects(department, semester);
+          const list = await getSubjects(lectureDepartment, semester);
           setSubjectsList(Array.from(new Set(list.map(s => s.name))));
           setSubject(""); // Reset subject selection
         } catch (e) {
@@ -72,68 +149,70 @@ export const StaffForm: React.FC = () => {
       }
     };
     loadSubjectsData();
-  }, [department, semester]);
+  }, [lectureDepartment, semester]);
 
-  // Update staff list whenever department changes (dynamically from database)
+  // Reset semester if lectureDepartment changes to Science & Humanities and semester is > Sem 2
   useEffect(() => {
-    const loadStaffData = async () => {
-      if (department) {
-        try {
-          const list = await getStaff(department);
-          setDbStaffList(list);
-          // If the saved staff name is not in the list, or empty, set to empty
-          const savedName = localStorage.getItem("attendance_staff_name");
-          if (savedName && list.find(s => s.name === savedName)) {
-            setStaffName(savedName);
-          } else {
-            setStaffName("");
-          }
-        } catch (e) {
-          console.error("Failed to load staff:", e);
-        }
-      } else {
-        setDbStaffList([]);
-        setStaffName("");
-      }
-    };
-    loadStaffData();
-  }, [department]);
-
-  // Reset semester if department changes to Science & Humanities and semester is > Sem 2
-  useEffect(() => {
-    if (department === "Science & Humanities" && semester !== "" && semester !== "Semester 1" && semester !== "Semester 2") {
+    if (lectureDepartment === "Science & Humanities" && semester !== "" && semester !== "Semester 1" && semester !== "Semester 2") {
       setSemester("");
     }
-  }, [department, semester]);
+  }, [lectureDepartment, semester]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!academicYear || !department || !semester || !subject || !staffName || !date || !startTime || !endTime) {
+    if (!academicYear || !staffDepartment || !lectureDepartment || !semester || !subject || !staffName || !date || !startTime || !endTime) {
       setError("Please fill in all required fields.");
       return;
     }
 
-    // Validate Absent Roll Numbers format (e.g. 5, 12, 19 or empty/numbers/commas)
-    const cleanAbsent = absentNos.trim();
-    if (cleanAbsent !== "") {
-      const isValid = /^[\d\s,]*$/.test(cleanAbsent);
-      if (!isValid) {
-        setError("Absent Roll Numbers must be numbers separated by commas only (e.g., 5, 12, 19).");
-        return;
+    // Prepare absent roll numbers from roster or manual text input
+    let absentList: { rollNo: string; name: string }[] = [];
+    if (students.length > 0) {
+      const absentStudents = students.filter(s => !presentStatus[s.rollNo]);
+      absentList = absentStudents.map(s => ({ rollNo: s.rollNo, name: s.name }));
+    } else {
+      const cleanAbsent = absentNos.trim();
+      if (cleanAbsent !== "") {
+        const isValid = /^[\d\s,]*$/.test(cleanAbsent);
+        if (!isValid) {
+          setError("Absent Roll Numbers must be numbers separated by commas only (e.g., 5, 12, 19).");
+          return;
+        }
+        absentList = cleanAbsent.split(",").map(val => ({ rollNo: val.trim(), name: "Manual Entry" }));
       }
     }
 
     setError(null);
+    setAbsentListForConfirm(absentList);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setShowConfirmModal(false);
+    setError(null);
     setLoading(true);
+
+    let cleanAbsent = "";
+    if (students.length > 0) {
+      const absentStudents = students.filter(s => !presentStatus[s.rollNo]);
+      cleanAbsent = absentStudents.map(s => s.rollNo).join(", ");
+    } else {
+      cleanAbsent = absentNos.trim();
+    }
+
+    const dateParts = date.split("-");
+    const dbFormattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : date;
 
     try {
       await saveAttendanceRecord({
         academicYear,
-        department,
+        department: lectureDepartment, // Saved as department (lecture target) to fit dashboard requirements
+        staffDepartment,              // Saved as staffDepartment for meta-integrity
         semester,
         subject,
+        lectureType,
         staffName,
-        date,
+        date: dbFormattedDate,
         startTime,
         endTime,
         absentNos: cleanAbsent
@@ -219,7 +298,7 @@ export const StaffForm: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit} className="form-grid">
-        {/* Academic Year */}
+        {/* Academic Year (Locked) */}
         <div className="form-group">
           <label htmlFor="academicYear">Academic Year</label>
           <div style={{ position: "relative" }}>
@@ -227,37 +306,55 @@ export const StaffForm: React.FC = () => {
               type="text"
               id="academicYear"
               required
+              readOnly
+              style={{ opacity: 0.7, cursor: "not-allowed", backgroundColor: "rgba(255,255,255,0.05)" }}
               placeholder="e.g. 2026-2027"
               value={academicYear}
-              onChange={(e) => setAcademicYear(e.target.value)}
             />
           </div>
         </div>
 
-        {/* Date */}
+        {/* Date (Conditionally Locked) */}
         <div className="form-group">
-          <label htmlFor="date">Date</label>
+          <label htmlFor="date">
+            Date {dateLocked && <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginLeft: "0.25rem" }}>(Locked to Today)</span>}
+          </label>
           <div style={{ position: "relative" }}>
             <input
               type="date"
               id="date"
               required
+              readOnly={dateLocked}
+              style={dateLocked ? { opacity: 0.7, cursor: "not-allowed", backgroundColor: "rgba(255,255,255,0.05)" } : {}}
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
         </div>
 
-        {/* Department */}
+        {/* Staff Department (Locked) */}
         <div className="form-group">
-          <label htmlFor="department">Department</label>
-          <select
-            id="department"
+          <label htmlFor="staffDepartment">Staff Department</label>
+          <input
+            type="text"
+            id="staffDepartment"
             required
-            value={department}
-            onChange={(e) => setDepartment(e.target.value as Department)}
+            readOnly
+            style={{ opacity: 0.7, cursor: "not-allowed", backgroundColor: "rgba(255,255,255,0.05)" }}
+            value={staffDepartment}
+          />
+        </div>
+
+        {/* Lecture Department */}
+        <div className="form-group">
+          <label htmlFor="lectureDepartment">Lecture Department (Classroom)</label>
+          <select
+            id="lectureDepartment"
+            required
+            value={lectureDepartment}
+            onChange={(e) => setLectureDepartment(e.target.value as Department)}
           >
-            <option value="">-- Select Department --</option>
+            <option value="">-- Select Lecture Department --</option>
             {DEPARTMENTS.map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
@@ -276,7 +373,7 @@ export const StaffForm: React.FC = () => {
             onChange={(e) => setSemester(e.target.value as Semester)}
           >
             <option value="">-- Select Semester --</option>
-            {(department === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map((sem) => (
+            {(lectureDepartment === "Science & Humanities" ? SEMESTERS.slice(0, 2) : SEMESTERS).map((sem) => (
               <option key={sem} value={sem}>
                 {sem}
               </option>
@@ -284,18 +381,18 @@ export const StaffForm: React.FC = () => {
           </select>
         </div>
 
-        {/* Subject (Filtered dynamically) */}
+        {/* Subject (Filtered dynamically based on Lecture Department) */}
         <div className="form-group">
           <label htmlFor="subject">Subject / Course</label>
           <select
             id="subject"
             required
-            disabled={!department || !semester}
+            disabled={!lectureDepartment || !semester}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
           >
-            {!department || !semester ? (
-              <option value="">Choose Dept & Sem first</option>
+            {!lectureDepartment || !semester ? (
+              <option value="">Choose Lecture Dept & Sem first</option>
             ) : (
               <>
                 <option value="">-- Select Subject --</option>
@@ -309,30 +406,20 @@ export const StaffForm: React.FC = () => {
           </select>
         </div>
 
-        {/* Staff Name Dropdown */}
+        {/* Session / Lecture Type */}
         <div className="form-group">
-          <label htmlFor="staffName">Staff Name</label>
+          <label htmlFor="lectureType">Session Type (Lecture/Practical)</label>
           <select
-            id="staffName"
+            id="lectureType"
             required
-            disabled={!department}
-            value={staffName}
-            onChange={(e) => setStaffName(e.target.value)}
+            value={lectureType}
+            onChange={(e) => setLectureType(e.target.value as "Lecture" | "Practical")}
           >
-            {!department ? (
-              <option value="">Choose Department first</option>
-            ) : (
-              <>
-                <option value="">-- Select Staff --</option>
-                {dbStaffList.map((st) => (
-                  <option key={st.id || st.name} value={st.name}>
-                    {st.name}
-                  </option>
-                ))}
-              </>
-            )}
+            <option value="Lecture">Lecture</option>
+            <option value="Practical">Practical</option>
           </select>
         </div>
+
 
         {/* Start Time */}
         <div className="form-group">
@@ -358,18 +445,111 @@ export const StaffForm: React.FC = () => {
           />
         </div>
 
-        {/* Absent Roll Numbers */}
-        <div className="form-group full-width">
-          <label htmlFor="absentNos">Absent Student Roll Numbers (comma separated)</label>
-          <input
-            type="text"
-            id="absentNos"
-            placeholder="e.g., 5, 12, 19, 23 (Leave blank if all are present)"
-            value={absentNos}
-            onChange={(e) => setAbsentNos(e.target.value)}
-          />
-          <span className="form-hint">Enter roll numbers separated by commas. Leave blank if 100% attendance.</span>
-        </div>
+        {/* Student Attendance Roster or Manual Input fallback */}
+        {rosterLoading ? (
+          <div className="form-group full-width roster-loading-container" style={{ textAlign: "center", padding: "2rem" }}>
+            <div className="spinner" style={{ margin: "0 auto 1rem auto" }}></div>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Loading students list for this class...</p>
+          </div>
+        ) : students.length > 0 ? (
+          <div className="form-group full-width roster-card glass-card" style={{ padding: "1.25rem", margin: "1rem 0" }}>
+            <div className="roster-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h4 className="roster-title" style={{ margin: 0, fontSize: "1.1rem" }}>Mark Absent / Present Students</h4>
+                <p className="roster-subtitle" style={{ fontSize: "0.85rem", color: "var(--text-muted)", margin: "0.2rem 0 0" }}>
+                  Toggle student cards to mark them as Present (green) or Absent (red).
+                </p>
+              </div>
+              <div className="roster-stats" style={{ display: "flex", gap: "0.5rem" }}>
+                <span className="badge badge-purple">Total: {students.length}</span>
+                <span className="badge badge-success">Present: {students.filter(s => presentStatus[s.rollNo]).length}</span>
+                <span className="badge badge-danger">Absent: {students.filter(s => !presentStatus[s.rollNo]).length}</span>
+              </div>
+            </div>
+
+            <div className="roster-actions-bar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+              <div className="roster-search-wrapper" style={{ flex: 1, minWidth: "200px" }}>
+                <input
+                  type="text"
+                  placeholder="Filter by student name or roll..."
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
+                  className="roster-search-input"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "rgba(255,255,255,0.05)", color: "var(--text-primary)", boxSizing: "border-box" }}
+                />
+              </div>
+              <div className="roster-quick-btns" style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={markAllPresent}
+                  className="btn btn-secondary"
+                  style={{ fontSize: "0.8rem", padding: "6px 12px", display: "inline-flex" }}
+                >
+                  All Present
+                </button>
+                <button
+                  type="button"
+                  onClick={markAllAbsent}
+                  className="btn btn-secondary"
+                  style={{ fontSize: "0.8rem", padding: "6px 12px", display: "inline-flex" }}
+                >
+                  All Absent
+                </button>
+              </div>
+            </div>
+
+            <div className="roster-grid">
+              {students
+                .filter(s => {
+                  const q = studentSearchQuery.toLowerCase().trim();
+                  return s.name.toLowerCase().includes(q) || s.rollNo.includes(q);
+                })
+                .map((s) => {
+                  const isPresent = presentStatus[s.rollNo] !== false; // default true
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => toggleStudentStatus(s.rollNo)}
+                      className={`roster-item compact-toggle ${isPresent ? "present" : "absent"}`}
+                      title={`${s.name} (Roll No: ${s.rollNo})`}
+                    >
+                      <span className="roll-number">{s.rollNo}</span>
+                      <span className="student-name-compact">{s.name}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        ) : (!lectureDepartment || !semester) ? (
+          /* Prompts staff to select dept & sem */
+          <div className="form-group full-width" style={{
+            textAlign: "center",
+            padding: "2rem",
+            border: "1.5px dashed var(--border-color)",
+            borderRadius: "12px",
+            backgroundColor: "rgba(255, 255, 255, 0.01)",
+            boxSizing: "border-box"
+          }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 }}>
+              Select a Lecture Department and Semester above to load the student roster toggles.
+            </p>
+          </div>
+        ) : (
+          /* Manual Input Fallback when no students list is uploaded */
+          <div className="form-group full-width">
+            <label htmlFor="absentNos">Absent Student Roll Numbers (comma separated)</label>
+            <input
+              type="text"
+              id="absentNos"
+              placeholder="e.g., 5, 12, 19, 23 (Leave blank if all are present)"
+              value={absentNos}
+              onChange={(e) => setAbsentNos(e.target.value)}
+            />
+            <span className="form-hint">
+              No students database found for this class. You can manually enter absent roll numbers separated by commas.
+            </span>
+          </div>
+        )}
 
         {/* Submit */}
         <button
@@ -377,9 +557,97 @@ export const StaffForm: React.FC = () => {
           className="btn btn-primary btn-submit"
           disabled={loading}
         >
-          {loading ? "Saving Attendance Record..." : "Log & Save Record"}
+          {loading ? "Checking Attendance..." : "Log & Save Record"}
         </button>
       </form>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="modal-overlay" style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(15, 23, 42, 0.6)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "1rem",
+          boxSizing: "border-box"
+        }}>
+          <div className="glass-card modal-card" style={{
+            width: "100%",
+            maxWidth: "480px",
+            backgroundColor: "#ffffff",
+            borderRadius: "16px",
+            padding: "1.5rem",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            border: "1px solid var(--border-color)",
+            boxSizing: "border-box"
+          }}>
+            <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--text-primary)", fontSize: "1.25rem", fontWeight: 700 }}>
+              Confirm Attendance Submission
+            </h3>
+            
+            <div style={{ margin: "1rem 0", fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+              <p style={{ marginBottom: "0.75rem" }}>
+                Please review the absent students list before saving the record for <strong>{lectureDepartment} - {semester} ({subject})</strong>.
+              </p>
+              
+              <div style={{ 
+                border: "1px solid var(--border-color)", 
+                borderRadius: "8px", 
+                backgroundColor: "#f8fafc", 
+                padding: "0.75rem 1rem", 
+                maxHeight: "180px", 
+                overflowY: "auto",
+                margin: "1rem 0"
+              }}>
+                {absentListForConfirm.length === 0 ? (
+                  <div style={{ color: "var(--accent-green)", fontWeight: 600, textAlign: "center", padding: "0.5rem" }}>
+                    🎉 100% Attendance! All students are PRESENT.
+                  </div>
+                ) : (
+                  <div>
+                    <h5 style={{ margin: "0 0 0.5rem 0", color: "var(--accent-red)", fontWeight: 700 }}>
+                      ABSENT STUDENTS ({absentListForConfirm.length})
+                    </h5>
+                    <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+                      {absentListForConfirm.map((item, idx) => (
+                        <li key={idx} style={{ marginBottom: "0.25rem" }}>
+                          <strong>Roll No. {item.rollNo}</strong>: {item.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem" }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowConfirmModal(false)}
+                style={{ flex: 1, padding: "10px", fontSize: "0.9rem" }}
+              >
+                Go Back & Edit
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmSubmit}
+                style={{ flex: 1, padding: "10px", fontSize: "0.9rem", backgroundColor: "var(--accent-red)", borderColor: "var(--accent-red)" }}
+              >
+                Confirm & Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

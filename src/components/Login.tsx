@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Lock, Mail, Eye, EyeOff, ShieldAlert, Key } from "lucide-react";
-import { loginUser, IS_FIREBASE_CONFIGURED } from "../firebase";
+import { loginUser, loginStaff, IS_FIREBASE_CONFIGURED } from "../firebase";
 
 interface LoginProps {
   onLoginSuccess: (user: any) => void;
-  requestedRole: "principal" | "super_admin";
+  requestedRole: "principal" | "super_admin" | "staff";
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) => {
@@ -38,8 +38,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
     }
 
     try {
-      const user = await loginUser(email, password);
-      onLoginSuccess(user);
+      if (requestedRole === "staff") {
+        const staff = await loginStaff(email, password);
+        onLoginSuccess(staff);
+      } else {
+        const user = await loginUser(email, password);
+        onLoginSuccess(user);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to sign in. Please check your credentials.");
     } finally {
@@ -55,6 +60,27 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
   const autofillPrincipal = () => {
     setEmail("principal@attendance.com");
     setPassword("principal123");
+  };
+
+  const autofillStaff = () => {
+    setEmail("amit.patil@smvicre.edu.in");
+    setPassword("staff123");
+  };
+
+  const getPortalTitle = () => {
+    if (requestedRole === "super_admin") return "Super Admin Portal";
+    if (requestedRole === "principal") return "Principal Dashboard Portal";
+    return "Staff Attendance Portal";
+  };
+
+  const getPortalSubtitle = () => {
+    if (requestedRole === "super_admin") {
+      return "Sign in using Super Admin credentials to manage system settings.";
+    }
+    if (requestedRole === "principal") {
+      return "Sign in using your registered Principal credentials to view analytics.";
+    }
+    return "Sign in using your registered staff email and password to log in and record attendance.";
   };
 
   return (
@@ -77,11 +103,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
           >
             <Key size={30} />
           </div>
-          <h2>{requestedRole === "super_admin" ? "Super Admin Portal" : "Principal Dashboard Portal"}</h2>
+          <h2>{getPortalTitle()}</h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginTop: "0.25rem" }}>
-            {requestedRole === "super_admin" 
-              ? "Sign in using Super Admin credentials to manage system settings." 
-              : "Sign in using your registered Principal credentials to view analytics."}
+            {getPortalSubtitle()}
           </p>
         </div>
 
@@ -100,30 +124,28 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
               gap: "0.75rem"
             }}
           >
-            <ShieldAlert size={18} style={{ flexShrink: 0 }} />
+            <ShieldAlert size={20} style={{ flexShrink: 0 }} />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label>Email Address</label>
             <div style={{ position: "relative" }}>
               <input
                 type="email"
-                id="email"
                 required
-                placeholder="admin@attendance.com"
+                placeholder={requestedRole === "staff" ? "first.last@smvicre.edu.in" : "e.g. user@attendance.com"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-                style={{ paddingLeft: "2.75rem" }}
+                style={{ paddingLeft: "2.5rem" }}
               />
               <Mail
                 size={18}
                 style={{
                   position: "absolute",
-                  left: "1rem",
+                  left: "0.75rem",
                   top: "50%",
                   transform: "translateY(-50%)",
                   color: "var(--text-muted)"
@@ -133,23 +155,21 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div className="password-container">
+            <label>Password</label>
+            <div style={{ position: "relative" }}>
               <input
                 type={showPassword ? "text" : "password"}
-                id="password"
                 required
-                placeholder="••••••••"
+                placeholder="••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                style={{ paddingLeft: "2.75rem" }}
+                style={{ paddingLeft: "2.5rem", paddingRight: "2.5rem" }}
               />
               <Lock
                 size={18}
                 style={{
                   position: "absolute",
-                  left: "1rem",
+                  left: "0.75rem",
                   top: "50%",
                   transform: "translateY(-50%)",
                   color: "var(--text-muted)"
@@ -157,42 +177,52 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
               />
               <button
                 type="button"
-                className="password-toggle-btn"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                style={{ height: "48px", width: "48px" }}
+                style={{
+                  position: "absolute",
+                  right: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center"
+                }}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: "0.5rem" }}>
-            {loading ? "Authenticating..." : "Login to Portal"}
+          <button type="submit" className="btn btn-primary" style={{ width: "100%", marginTop: "0.5rem" }} disabled={loading}>
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
         {!IS_FIREBASE_CONFIGURED && (
           <div
             style={{
-              marginTop: "2rem",
-              paddingTop: "1.5rem",
-              borderTop: "1px solid var(--border-color)",
+              marginTop: "1.5rem",
+              paddingTop: "1.25rem",
+              borderTop: "1px solid rgba(255,255,255,0.08)",
               textAlign: "center"
             }}
           >
             <span
               style={{
-                fontSize: "0.85rem",
-                color: "var(--text-muted)",
                 display: "block",
+                fontSize: "0.8rem",
+                color: "var(--text-muted)",
                 marginBottom: "0.75rem"
               }}
             >
               Simulating locally. Use demo credentials:
             </span>
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              {requestedRole === "super_admin" ? (
+              {requestedRole === "super_admin" && (
                 <button
                   onClick={autofillSuperAdmin}
                   className="btn btn-secondary"
@@ -205,7 +235,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
                 >
                   Autofill Super Admin
                 </button>
-              ) : (
+              )}
+              {requestedRole === "principal" && (
                 <button
                   onClick={autofillPrincipal}
                   className="btn btn-secondary"
@@ -217,6 +248,20 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, requestedRole }) =
                   }}
                 >
                   Autofill Principal
+                </button>
+              )}
+              {requestedRole === "staff" && (
+                <button
+                  onClick={autofillStaff}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: "0.5rem",
+                    minHeight: "36px",
+                    fontSize: "0.8rem",
+                    flex: 1
+                  }}
+                >
+                  Autofill Staff
                 </button>
               )}
             </div>

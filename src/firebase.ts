@@ -1,18 +1,18 @@
 import { initializeApp, getApps, deleteApp } from "firebase/app";
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  signOut, 
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword
 } from "firebase/auth";
-import { 
-  getFirestore, 
-  collection as fbCollection, 
-  addDoc as fbAddDoc, 
+import {
+  getFirestore,
+  collection as fbCollection,
+  addDoc as fbAddDoc,
   setDoc as fbSetDoc,
   updateDoc as fbUpdateDoc,
-  query as fbQuery, 
+  query as fbQuery,
   orderBy as fbOrderBy,
   onSnapshot as fbOnSnapshot,
   getDocs as fbGetDocs,
@@ -20,7 +20,8 @@ import {
   deleteDoc as fbDeleteDoc,
   doc as fbDoc,
   where as fbWhere,
-  type DocumentData
+  type DocumentData,
+  writeBatch as fbWriteBatch
 } from "firebase/firestore";
 import { SUBJECT_MAPPING, DEPARTMENTS, SEMESTERS } from "./subjects";
 
@@ -30,8 +31,10 @@ export interface AttendanceRecord {
   id?: string;
   academicYear: string;
   department: string;
+  staffDepartment?: string;
   semester: string;
   subject: string;
+  lectureType?: "Lecture" | "Practical";
   staffName: string;
   date: string;
   startTime: string;
@@ -52,6 +55,16 @@ export interface SubjectItem {
   name: string;
   department: string;
   semester: string;
+  createdAt: number;
+}
+
+export interface Student {
+  id?: string;
+  rollNo: string;
+  name: string;
+  department: string;
+  semester: string;
+  academicYear: string;
   createdAt: number;
 }
 
@@ -82,7 +95,7 @@ const firebaseConfig = {
 };
 
 export const IS_FIREBASE_CONFIGURED = !!(
-  firebaseConfig.apiKey && 
+  firebaseConfig.apiKey &&
   firebaseConfig.apiKey !== "your_api_key_here" &&
   firebaseConfig.projectId
 );
@@ -103,12 +116,80 @@ if (IS_FIREBASE_CONFIGURED) {
 
 // --- LOCAL STORAGE DEMO SEED DATA ---
 
-const DEFAULT_DEMO_STAFF: Staff[] = [
-  { name: "Dr. Ranjeet Powar", department: "Computer Engineering", createdAt: Date.now() },
-  { name: "Prof. Amit Patil", department: "Computer Engineering", createdAt: Date.now() },
-  { name: "Prof. S. R. Joshi", department: "Electrical Engineering", createdAt: Date.now() },
-  { name: "Dr. N. M. Kulkarni", department: "Civil & Rural Engineering", createdAt: Date.now() }
+const cleanShortNameForEmail = (shortName: string): string => {
+  let clean = shortName.replace(/^(dr\.|prof\.|dr|prof)\s+/i, "").trim();
+  clean = clean.toLowerCase().replace(/\s+/g, ".");
+  return `${clean}@smvicre.edu.in`;
+};
+
+const generateDeterministicPassword = (shortName: string): string => {
+  const clean = shortName.replace(/^(dr\.|prof\.|dr|prof)\s+/i, "").trim().toLowerCase().replace(/\s+/g, "");
+  const prefix = (clean + "xxxxx").substring(0, 5);
+  const code = (shortName.length * 17) % 90 + 10;
+  return `${prefix.charAt(0).toUpperCase()}${prefix.substring(1)}${code}!`;
+};
+
+const PDF_STAFF_RAW = [
+  { name: "Dr. Arvind Kadam", department: "Electronics & Tele. Comm. Engineering", shortName: "Arvind Kadam" },
+  { name: "Ayan Kazi", department: "Civil & Rural Engineering", shortName: "Ayan Kazi" },
+  { name: "Kireesh More", department: "Civil & Rural Engineering", shortName: "Kireesh More" },
+  { name: "Shubham Khot", department: "Civil & Rural Engineering", shortName: "Shubham Khot" },
+  { name: "Prakash Patil", department: "Civil & Rural Engineering", shortName: "Prakash Patil" },
+  { name: "Rahul Surve", department: "Civil & Rural Engineering", shortName: "Rahul Surve" },
+  { name: "Omkar Dhenge", department: "Civil & Rural Engineering", shortName: "Omkar Dhenge" },
+  { name: "Ravikiran Torase", department: "Civil & Rural Engineering", shortName: "Ravikiran Torase" },
+  { name: "Sunil Mangale", department: "Civil & Rural Engineering", shortName: "Sunil Mangale" },
+  { name: "Mayur Pilankar", department: "Computer Engineering", shortName: "Mayur Pilankar" },
+  { name: "Santosh Mane", department: "Computer Engineering", shortName: "Santosh Mane" },
+  { name: "Chandrabhan Kumare", department: "Computer Engineering", shortName: "Chandrabhan Kumare" },
+  { name: "Mahesh Pore", department: "Computer Engineering", shortName: "Mahesh Pore" },
+  { name: "Aniket Chavan", department: "Computer Engineering", shortName: "Aniket Chavan" },
+  { name: "Gajanan Bhoi", department: "Computer Engineering", shortName: "Gajanan Bhoi" },
+  { name: "Omkar Suryavanshi", department: "Computer Engineering", shortName: "Omkar Suryavanshi" },
+  { name: "Pooja Chavan", department: "Computer Engineering", shortName: "Pooja Chavan" },
+  { name: "Vinayak Kalake", department: "Computer Engineering", shortName: "Vinayak Kalake" },
+  { name: "Dr. Ranjeet Powar", department: "Computer Engineering", shortName: "Dr. Ranjeet Powar" },
+  { name: "Sarjerao Patil", department: "Electrical Engineering", shortName: "Sarjerao Patil" },
+  { name: "Manoj Kalekar", department: "Electrical Engineering", shortName: "Manoj Kalekar" },
+  { name: "Rahul Jadhav", department: "Electrical Engineering", shortName: "Rahul Jadhav" },
+  { name: "Ajit Patil", department: "Electrical Engineering", shortName: "Ajit Patil" },
+  { name: "Revati Metal", department: "Electrical Engineering", shortName: "Revati Metal" },
+  { name: "Dastagir Shanediwan", department: "Electronics & Tele. Comm. Engineering", shortName: "Dastagir Shanediwan" },
+  { name: "Reshma Bhai", department: "Electronics & Tele. Comm. Engineering", shortName: "Reshma Bhai" },
+  { name: "Nilam Patil", department: "Electronics & Tele. Comm. Engineering", shortName: "Nilam Patil" },
+  { name: "Pramod Inchanalkar", department: "Electronics & Tele. Comm. Engineering", shortName: "Pramod Inchanalkar" },
+  { name: "Deepak Khot", department: "Electronics & Tele. Comm. Engineering", shortName: "Deepak Khot" },
+  { name: "Deepak Otari", department: "Electronics & Tele. Comm. Engineering", shortName: "Deepak Otari" },
+  { name: "Chandrakant Mane", department: "Mechanical Engineering", shortName: "Chandrakant Mane" },
+  { name: "Arvind Gojare", department: "Mechanical Engineering", shortName: "Arvind Gojare" },
+  { name: "Kiran Huparikar", department: "Mechanical Engineering", shortName: "Kiran Huparikar" },
+  { name: "Nandkumar Raul", department: "Mechanical Engineering", shortName: "Nandkumar Raul" },
+  { name: "Onkar Hajare", department: "Mechanical Engineering", shortName: "Onkar Hajare" },
+  { name: "Sagar Patil", department: "Mechanical Engineering", shortName: "Sagar Patil" },
+  { name: "Sourabh Varne", department: "Mechanical Engineering", shortName: "Sourabh Varne" },
+  { name: "Tushar Choutre", department: "Mechanical Engineering", shortName: "Tushar Choutre" },
+  { name: "Uday Patil", department: "Mechanical Engineering", shortName: "Uday Patil" },
+  { name: "Vijay Sawardekar", department: "Mechanical Engineering", shortName: "Vijay Sawardekar" },
+  { name: "Dr. Ujwala Solase", department: "Science & Humanities", shortName: "Ujwala Solase" },
+  { name: "Dr. Pravin Vhangutte", department: "Science & Humanities", shortName: "Pravin Vhangutte" },
+  { name: "Rajvardhan Ingale", department: "Science & Humanities", shortName: "Rajvardhan Ingale" },
+  { name: "Sampann Malavi", department: "Science & Humanities", shortName: "Sampann Malavi" },
+  { name: "Samruddhi Desai", department: "Science & Humanities", shortName: "Samruddhi Desai" },
+  { name: "Shridhar Desai", department: "Science & Humanities", shortName: "Shridhar Desai" },
+  { name: "Vinayak Ghungurkar", department: "Science & Humanities", shortName: "Vinayak Ghungurkar" },
+  { name: "Dr. Sachin Abitkar", department: "Science & Humanities", shortName: "Sachin Abitkar" },
+  { name: "Meena Morbale", department: "Science & Humanities", shortName: "Meena Morbale" },
+  { name: "Pandharinath Regade", department: "Science & Humanities", shortName: "Pandharinath Regade" }
 ];
+
+const DEFAULT_DEMO_STAFF: Staff[] = PDF_STAFF_RAW.map((item, idx) => ({
+  id: `sim_staff_${idx + 1}`,
+  name: item.name,
+  department: item.department,
+  email: cleanShortNameForEmail(item.shortName),
+  password: generateDeterministicPassword(item.shortName),
+  createdAt: Date.now() - (50 - idx) * 1000
+}));
 
 const DEFAULT_DEMO_PRINCIPALS: Principal[] = [
   { email: "principal@attendance.com", password: "principal123", name: "Dr. Ranjeet Powar", createdAt: Date.now() }
@@ -140,6 +221,35 @@ const initializeDemoDB = () => {
     });
     localStorage.setItem("attendance_subjects_sim", JSON.stringify(initialSubjects));
   }
+  const storedStudents = localStorage.getItem("attendance_students_sim");
+  if (!storedStudents || JSON.parse(storedStudents).length === 0) {
+    const initialStudents: Student[] = [];
+    const mockNames = [
+      "Aarav Sharma", "Aditya Patel", "Vihaan Gupta", "Arjun Rao", "Sai Reddy",
+      "Ishaan Deshmukh", "Ananya Iyer", "Diya Joshi", "Riya Sen", "Shruti Joshi",
+      "Priya Nair", "Amit Patil", "Rohit Shinde", "Rahul Desai", "Siddharth Mehta",
+      "Sneha Jadhav", "Tanvi Sawant", "Yash Mohite", "Pranav More", "Neha Gaikwad"
+    ];
+    DEPARTMENTS.forEach(dept => {
+      const sems = dept === "Science & Humanities" ? ["Semester 1", "Semester 2"] : SEMESTERS;
+      sems.forEach(sem => {
+        // Create 15 mock students for each class
+        for (let r = 1; r <= 15; r++) {
+          const nameIndex = (dept.charCodeAt(0) + sem.charCodeAt(9) + r) % mockNames.length;
+          initialStudents.push({
+            id: `sim_stud_${dept.slice(0,3).replace(/\s+/g, "")}_${sem.slice(-1)}_${r}`,
+            rollNo: String(r),
+            name: mockNames[nameIndex],
+            department: dept,
+            semester: sem as Semester,
+            academicYear: "2026-2027",
+            createdAt: Date.now()
+          });
+        }
+      });
+    });
+    localStorage.setItem("attendance_students_sim", JSON.stringify(initialStudents));
+  }
 };
 
 initializeDemoDB();
@@ -149,7 +259,7 @@ initializeDemoDB();
 export const getStaff = async (department?: string): Promise<Staff[]> => {
   if (IS_FIREBASE_CONFIGURED && db) {
     const collRef = fbCollection(db, "staff");
-    const q = department 
+    const q = department
       ? fbQuery(collRef, fbWhere("department", "==", department))
       : fbQuery(collRef);
     const snapshot = await fbGetDocs(q);
@@ -160,23 +270,43 @@ export const getStaff = async (department?: string): Promise<Staff[]> => {
         id: doc.id,
         name: data.name,
         department: data.department,
+        email: data.email || "",
+        password: data.password || "",
         createdAt: data.createdAt || 0
       });
     });
     // Sort in memory to avoid index requirements
     return result.sort((a, b) => b.createdAt - a.createdAt);
   } else {
-    // Simulated Mode
     const list: Staff[] = JSON.parse(localStorage.getItem("attendance_staff_sim") || "[]");
     const filtered = department ? list.filter(s => s.department === department) : list;
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
   }
 };
 
-export const addStaff = async (name: string, department: string): Promise<void> => {
+export const addStaff = async (name: string, department: string, email?: string, password?: string): Promise<void> => {
+  const generateStaffEmail = (nameStr: string): string => {
+    const parts = nameStr.trim().toLowerCase().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0]}.${parts[parts.length - 1]}@smvicre.edu.in`;
+    }
+    return `${parts[0]}@smvicre.edu.in`;
+  };
+
+  const generateRandomPassword = (): string => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let pwd = "";
+    for (let i = 0; i < 6; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pwd;
+  };
+
   const staffItem: Omit<Staff, "id"> = {
     name: name.trim(),
     department,
+    email: (email || generateStaffEmail(name)).trim().toLowerCase(),
+    password: (password || generateRandomPassword()).trim(),
     createdAt: Date.now()
   };
 
@@ -196,6 +326,75 @@ export const deleteStaff = async (id: string): Promise<void> => {
     const list: Staff[] = JSON.parse(localStorage.getItem("attendance_staff_sim") || "[]");
     const filtered = list.filter(s => s.id !== id);
     localStorage.setItem("attendance_staff_sim", JSON.stringify(filtered));
+  }
+};
+
+export const updateStaff = async (id: string, name: string, department: string, email: string, password: string): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    await fbUpdateDoc(fbDoc(db, "staff", id), {
+      name: name.trim(),
+      department,
+      email: email.trim().toLowerCase(),
+      password: password.trim()
+    });
+  } else {
+    const list: Staff[] = JSON.parse(localStorage.getItem("attendance_staff_sim") || "[]");
+    const updated = list.map(s => s.id === id ? { ...s, name: name.trim(), department, email: email.trim().toLowerCase(), password: password.trim() } : s);
+    localStorage.setItem("attendance_staff_sim", JSON.stringify(updated));
+  }
+};
+
+export const resetStaffToPDFData = async (): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const collRef = fbCollection(db, "staff");
+    const snapshot = await fbGetDocs(collRef);
+    for (const doc of snapshot.docs) {
+      await fbDeleteDoc(fbDoc(db, "staff", doc.id));
+    }
+    for (const staff of DEFAULT_DEMO_STAFF) {
+      const staffItem: Omit<Staff, "id"> = {
+        name: staff.name,
+        department: staff.department,
+        email: staff.email || "",
+        password: staff.password || "",
+        createdAt: staff.createdAt
+      };
+      await fbAddDoc(collRef, staffItem);
+    }
+  } else {
+    localStorage.setItem("attendance_staff_sim", JSON.stringify(DEFAULT_DEMO_STAFF));
+  }
+};
+
+export const loginStaff = async (email: string, password: string): Promise<Staff> => {
+  const normEmail = email.trim().toLowerCase();
+  const pwd = password.trim();
+
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const collRef = fbCollection(db, "staff");
+    const q = fbQuery(collRef, fbWhere("email", "==", normEmail), fbWhere("password", "==", pwd));
+    const snapshot = await fbGetDocs(q);
+    if (snapshot.empty) {
+      throw new Error("Invalid staff email or password.");
+    }
+    const docSnap = snapshot.docs[0];
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      name: data.name,
+      department: data.department,
+      email: data.email,
+      password: data.password,
+      createdAt: data.createdAt || 0
+    };
+  } else {
+    // Simulated Mode
+    const list: Staff[] = JSON.parse(localStorage.getItem("attendance_staff_sim") || "[]");
+    const staff = list.find(s => s.email?.toLowerCase() === normEmail && s.password === pwd);
+    if (!staff) {
+      throw new Error("Invalid staff email or password.");
+    }
+    return staff;
   }
 };
 
@@ -279,7 +478,7 @@ export const initializeSubjectsIfNeeded = async (): Promise<void> => {
     try {
       const collRef = fbCollection(db, "subjects");
       const snapshot = await fbGetDocs(fbQuery(collRef, fbWhere("department", "==", "Computer Engineering"), fbWhere("semester", "==", "Semester 1")));
-      
+
       // If collection is empty, populate it
       if (snapshot.empty) {
         console.log("Subjects collection is empty. Seeding initial values from static mapping...");
@@ -300,6 +499,95 @@ export const initializeSubjectsIfNeeded = async (): Promise<void> => {
       }
     } catch (e) {
       console.error("Failed to check/seed subjects:", e);
+    }
+  }
+};
+
+/**
+ * Automatically populates the FireStore students collection with mock Indian students on first boot if empty.
+ * Detects and automatically resolves duplication race conditions caused by hot reloads.
+ */
+export const initializeStudentsIfNeeded = async (): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    if ((window as any).__students_seeding_in_progress || (window as any).__students_seeded) {
+      return;
+    }
+    (window as any).__students_seeding_in_progress = true;
+
+    try {
+      const collRef = fbCollection(db, "students");
+      const snapshot = await fbGetDocs(fbQuery(collRef, fbWhere("department", "==", "Computer Engineering"), fbWhere("semester", "==", "Semester 1"), fbWhere("academicYear", "==", "2026-2027")));
+
+      const hasDuplicates = snapshot.docs.filter(doc => doc.data().rollNo === "1").length > 1;
+
+      if (snapshot.empty || hasDuplicates) {
+        console.log("Wiping students collection to resolve duplicates or initialize seeding...");
+        const snapshotAll = await fbGetDocs(collRef);
+        
+        // Execute batched deletes in chunks of 400
+        let deleteBatch = fbWriteBatch(db);
+        let deleteCount = 0;
+        for (const doc of snapshotAll.docs) {
+          deleteBatch.delete(fbDoc(db, "students", doc.id));
+          deleteCount++;
+          if (deleteCount === 400) {
+            await deleteBatch.commit();
+            deleteBatch = fbWriteBatch(db);
+            deleteCount = 0;
+          }
+        }
+        if (deleteCount > 0) {
+          await deleteBatch.commit();
+        }
+
+        console.log("Seeding mock Indian students in Firestore (excluding Science & Humanities) via batch writes...");
+        const mockNames = [
+          "Aarav Sharma", "Aditya Patel", "Vihaan Gupta", "Arjun Rao", "Sai Reddy",
+          "Ishaan Deshmukh", "Ananya Iyer", "Diya Joshi", "Riya Sen", "Shruti Joshi",
+          "Priya Nair", "Amit Patil", "Rohit Shinde", "Rahul Desai", "Siddharth Mehta",
+          "Sneha Jadhav", "Tanvi Sawant", "Yash Mohite", "Pranav More", "Neha Gaikwad"
+        ];
+        
+        let insertBatch = fbWriteBatch(db);
+        let insertCount = 0;
+
+        for (const dept of DEPARTMENTS) {
+          // Exclude Science & Humanities from seeded student data
+          if (dept === "Science & Humanities") continue;
+
+          for (const sem of SEMESTERS) {
+            for (let r = 1; r <= 15; r++) {
+              const nameIndex = (dept.charCodeAt(0) + sem.charCodeAt(9) + r) % mockNames.length;
+              const newDocRef = fbDoc(collRef);
+              
+              insertBatch.set(newDocRef, {
+                rollNo: String(r),
+                name: mockNames[nameIndex],
+                department: dept,
+                semester: sem,
+                academicYear: "2026-2027",
+                createdAt: Date.now()
+              });
+
+              insertCount++;
+              if (insertCount === 400) {
+                await insertBatch.commit();
+                insertBatch = fbWriteBatch(db);
+                insertCount = 0;
+              }
+            }
+          }
+        }
+        if (insertCount > 0) {
+          await insertBatch.commit();
+        }
+        console.log("Firebase Students Seeding Complete.");
+      }
+      (window as any).__students_seeded = true;
+    } catch (e) {
+      console.error("Failed to check/seed students:", e);
+    } finally {
+      (window as any).__students_seeding_in_progress = false;
     }
   }
 };
@@ -395,7 +683,7 @@ export const saveAttendanceRecord = async (record: Omit<AttendanceRecord, "creat
     const list = records ? JSON.parse(records) : [];
     list.push(newRecord);
     localStorage.setItem("attendance_records_sim", JSON.stringify(list));
-    
+
     // Trigger listeners
     triggerDemoRecordsListeners();
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -424,6 +712,7 @@ export const subscribeToAttendanceRecords = (
           id: doc.id,
           academicYear: data.academicYear || "",
           department: data.department || "",
+          staffDepartment: data.staffDepartment || "",
           semester: data.semester || "",
           subject: data.subject || "",
           staffName: data.staffName || "",
@@ -446,7 +735,7 @@ export const subscribeToAttendanceRecords = (
     const list = records ? JSON.parse(records) : [];
     const sorted = list.sort((a: any, b: any) => b.createdAt - a.createdAt);
     onUpdate(sorted);
-    
+
     return () => {
       const index = demoRecordsListeners.indexOf(onUpdate);
       if (index > -1) {
@@ -473,12 +762,15 @@ const broadcastAuthChange = (user: AuthUser | null) => {
   });
 };
 
+let authHasResolved = false;
+
 // Subscribe to standard Firebase Authentication state changes on startup
 if (IS_FIREBASE_CONFIGURED && auth) {
   onAuthStateChanged(auth, async (fbUser) => {
+    authHasResolved = true;
     if (fbUser) {
       const superAdminEmail = import.meta.env.VITE_SUPER_ADMIN_EMAIL || "superadmin@attendance.com";
-      
+
       // If Firebase Auth indicates Super Admin email (if they authenticated via Auth)
       if (fbUser.email?.toLowerCase() === superAdminEmail.toLowerCase()) {
         broadcastAuthChange({
@@ -511,10 +803,8 @@ if (IS_FIREBASE_CONFIGURED && auth) {
         }
       }
     } else {
-      // Signed out from Firebase Auth. Reset session only if they were principal
-      if (currentSessionUser && currentSessionUser.role === "principal") {
-        broadcastAuthChange(null);
-      }
+      // Signed out from Firebase Auth. Reset session
+      broadcastAuthChange(null);
     }
   });
 }
@@ -577,7 +867,7 @@ export const loginUser = async (email: string, password: string): Promise<AuthUs
     await new Promise(resolve => setTimeout(resolve, 600));
     const principals: Principal[] = JSON.parse(localStorage.getItem("attendance_principals_sim") || "[]");
     const matched = principals.find(p => p.email.toLowerCase() === normEmail && p.password === password);
-    
+
     if (!matched) {
       throw new Error("Invalid admin email or password.");
     }
@@ -607,8 +897,10 @@ export const logoutUser = async (): Promise<void> => {
 
 export const subscribeToAuthChanges = (callback: (user: AuthUser | null) => void): (() => void) => {
   authListeners.push(callback);
-  // Send current session user immediately
-  callback(currentSessionUser);
+  // Send current session user immediately only if it's already resolved or not configured
+  if (!IS_FIREBASE_CONFIGURED || authHasResolved) {
+    callback(currentSessionUser);
+  }
 
   return () => {
     const index = authListeners.indexOf(callback);
@@ -616,4 +908,282 @@ export const subscribeToAuthChanges = (callback: (user: AuthUser | null) => void
       authListeners.splice(index, 1);
     }
   };
+};
+
+// --- 5. STUDENTS CRUD FUNCTIONS ---
+
+export const getStudents = async (department: string, semester: string, academicYear: string): Promise<Student[]> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const collRef = fbCollection(db, "students");
+    const q = fbQuery(
+      collRef,
+      fbWhere("department", "==", department),
+      fbWhere("semester", "==", semester),
+      fbWhere("academicYear", "==", academicYear)
+    );
+    const snapshot = await fbGetDocs(q);
+    const result: Student[] = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      result.push({
+        id: doc.id,
+        rollNo: data.rollNo,
+        name: data.name,
+        department: data.department,
+        semester: data.semester,
+        academicYear: data.academicYear,
+        createdAt: data.createdAt || 0
+      });
+    });
+    return result.sort((a, b) => {
+      const numA = parseInt(a.rollNo, 10);
+      const numB = parseInt(b.rollNo, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.rollNo.localeCompare(b.rollNo);
+    });
+  } else {
+    const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+    const filtered = list.filter(
+      s => s.department === department && s.semester === semester && s.academicYear === academicYear
+    );
+    return filtered.sort((a, b) => {
+      const numA = parseInt(a.rollNo, 10);
+      const numB = parseInt(b.rollNo, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.rollNo.localeCompare(b.rollNo);
+    });
+  }
+};
+
+export const getStudentsCountMap = async (): Promise<Record<string, number>> => {
+  const result: Record<string, number> = {};
+  if (IS_FIREBASE_CONFIGURED && db) {
+    try {
+      const collRef = fbCollection(db, "students");
+      const snapshot = await fbGetDocs(collRef);
+      snapshot.forEach(doc => {
+        const s = doc.data();
+        const key = `${s.department}_${s.semester}_${s.academicYear}`;
+        result[key] = (result[key] || 0) + 1;
+      });
+    } catch (e) {
+      console.error("Failed to query student counts in Firestore:", e);
+    }
+  } else {
+    try {
+      const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+      list.forEach(s => {
+        const key = `${s.department}_${s.semester}_${s.academicYear}`;
+        result[key] = (result[key] || 0) + 1;
+      });
+    } catch (e) {
+      console.error("Failed to query simulated student counts:", e);
+    }
+  }
+  return result;
+};
+
+export const addStudent = async (
+  rollNo: string,
+  name: string,
+  department: string,
+  semester: string,
+  academicYear: string
+): Promise<void> => {
+  const studentItem: Omit<Student, "id"> = {
+    rollNo: rollNo.trim(),
+    name: name.trim(),
+    department,
+    semester,
+    academicYear,
+    createdAt: Date.now()
+  };
+
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const collRef = fbCollection(db, "students");
+    const q = fbQuery(
+      collRef,
+      fbWhere("department", "==", department),
+      fbWhere("semester", "==", semester),
+      fbWhere("academicYear", "==", academicYear),
+      fbWhere("rollNo", "==", rollNo.trim())
+    );
+    const snapshot = await fbGetDocs(q);
+    if (!snapshot.empty) {
+      throw new Error(`Roll No ${rollNo} already exists in this class.`);
+    }
+    await fbAddDoc(collRef, studentItem);
+  } else {
+    const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+    const duplicate = list.some(
+      s => s.department === department && s.semester === semester && s.academicYear === academicYear && s.rollNo.toLowerCase() === rollNo.trim().toLowerCase()
+    );
+    if (duplicate) {
+      throw new Error(`Roll No ${rollNo} already exists in this class.`);
+    }
+    list.push({ ...studentItem, id: `sim_stud_${Date.now()}` });
+    localStorage.setItem("attendance_students_sim", JSON.stringify(list));
+  }
+};
+
+export const updateStudent = async (id: string, rollNo: string, name: string): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    await fbUpdateDoc(fbDoc(db, "students", id), {
+      rollNo: rollNo.trim(),
+      name: name.trim()
+    });
+  } else {
+    const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+    const index = list.findIndex(s => s.id === id);
+    if (index !== -1) {
+      list[index].rollNo = rollNo.trim();
+      list[index].name = name.trim();
+      localStorage.setItem("attendance_students_sim", JSON.stringify(list));
+    }
+  }
+};
+
+export const deleteStudent = async (id: string): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    await fbDeleteDoc(fbDoc(db, "students", id));
+  } else {
+    const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+    const filtered = list.filter(s => s.id !== id);
+    localStorage.setItem("attendance_students_sim", JSON.stringify(filtered));
+  }
+};
+
+export const addStudentsBatch = async (students: Omit<Student, "id" | "createdAt">[]): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    for (const s of students) {
+      await fbAddDoc(fbCollection(db, "students"), {
+        ...s,
+        createdAt: Date.now()
+      });
+    }
+  } else {
+    const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+    students.forEach((s, idx) => {
+      list.push({
+        ...s,
+        id: `sim_stud_${Date.now()}_${idx}`,
+        createdAt: Date.now()
+      });
+    });
+    localStorage.setItem("attendance_students_sim", JSON.stringify(list));
+  }
+};
+
+export const subscribeToStudents = (
+  onUpdate: (students: Student[]) => void, 
+  onError?: (err: Error) => void
+) => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const collRef = fbCollection(db, "students");
+    return fbOnSnapshot(
+      collRef,
+      (snapshot) => {
+        const result: Student[] = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          result.push({
+            id: doc.id,
+            rollNo: data.rollNo,
+            name: data.name,
+            department: data.department,
+            semester: data.semester,
+            academicYear: data.academicYear,
+            createdAt: data.createdAt || 0
+          });
+        });
+        onUpdate(result);
+      },
+      (error) => {
+        if (onError) onError(error);
+      }
+    );
+  } else {
+    // LocalStorage fallback
+    const list: Student[] = JSON.parse(localStorage.getItem("attendance_students_sim") || "[]");
+    onUpdate(list);
+    return () => {};
+  }
+};
+
+export interface SystemSettings {
+  dateLocked: boolean;
+}
+
+export const getSystemSettings = async (): Promise<SystemSettings> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    try {
+      const docRef = fbDoc(db, "settings", "attendance");
+      const docSnap = await fbGetDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as SystemSettings;
+      } else {
+        const defaultSettings = { dateLocked: false };
+        await fbSetDoc(docRef, defaultSettings);
+        return defaultSettings;
+      }
+    } catch (e) {
+      console.error("Failed to load settings from Firestore:", e);
+      return { dateLocked: false };
+    }
+  } else {
+    const local = localStorage.getItem("attendance_settings_sim");
+    if (local) {
+      return JSON.parse(local);
+    }
+    return { dateLocked: false };
+  }
+};
+
+export const updateSystemSettings = async (settings: Partial<SystemSettings>): Promise<void> => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const docRef = fbDoc(db, "settings", "attendance");
+    await fbSetDoc(docRef, settings, { merge: true });
+  } else {
+    const current = await getSystemSettings();
+    const updated = { ...current, ...settings };
+    localStorage.setItem("attendance_settings_sim", JSON.stringify(updated));
+  }
+};
+
+export const subscribeToSystemSettings = (
+  onUpdate: (settings: SystemSettings) => void
+) => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const docRef = fbDoc(db, "settings", "attendance");
+    return fbOnSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onUpdate(docSnap.data() as SystemSettings);
+        } else {
+          fbSetDoc(docRef, { dateLocked: false }).then(() => {
+            onUpdate({ dateLocked: false });
+          });
+        }
+      }
+    );
+  } else {
+    const checkLocal = () => {
+      const current = localStorage.getItem("attendance_settings_sim");
+      if (current) {
+        onUpdate(JSON.parse(current));
+      } else {
+        onUpdate({ dateLocked: false });
+      }
+    };
+    checkLocal();
+    window.addEventListener("storage", checkLocal);
+    return () => {
+      window.removeEventListener("storage", checkLocal);
+    };
+  }
 };

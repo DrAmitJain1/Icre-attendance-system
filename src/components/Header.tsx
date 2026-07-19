@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { GraduationCap, LayoutDashboard, LogOut, UserCheck, ShieldAlert, Menu, X } from "lucide-react";
-import { type AuthUser } from "../firebase";
+import { type AuthUser, type Staff } from "../firebase";
 
 export type ViewState = "staff" | "dashboard" | "superadmin" | "login";
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   currentView: ViewState;
   onViewChange: (view: ViewState) => void;
   adminUser: AuthUser | null;
+  loggedInStaff?: Staff | null;
   onLogout: () => void;
 }
 
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentView,
   onViewChange,
   adminUser,
+  loggedInStaff,
   onLogout
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -80,15 +82,25 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Logged in User Profile & Sign Out Button */}
-          {adminUser && (
+          {(adminUser || loggedInStaff) && (
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginLeft: "0.5rem" }}>
-              <span 
-                className={`badge ${adminUser.role === "super_admin" ? "badge-purple" : "badge-blue"}`} 
-                style={{ display: "inline-flex", gap: "0.25rem" }}
-                title={adminUser.email}
-              >
-                {adminUser.role === "super_admin" ? "Super Admin" : "Principal"}
-              </span>
+              {adminUser ? (
+                <span 
+                  className={`badge ${adminUser.role === "super_admin" ? "badge-purple" : "badge-blue"}`} 
+                  style={{ display: "inline-flex", gap: "0.25rem" }}
+                  title={adminUser.email}
+                >
+                  {adminUser.role === "super_admin" ? "Super Admin" : "Principal"}
+                </span>
+              ) : (
+                <span 
+                  className="badge badge-blue" 
+                  style={{ display: "inline-flex", gap: "0.25rem" }}
+                  title={loggedInStaff?.email}
+                >
+                  Staff: {loggedInStaff?.name}
+                </span>
+              )}
               <button
                 onClick={handleLogoutClick}
                 className="btn btn-danger"
@@ -141,11 +153,17 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {adminUser && (
+          {(adminUser || loggedInStaff) && (
             <div className="mobile-profile-section">
-              <span className={`badge ${adminUser.role === "super_admin" ? "badge-purple" : "badge-blue"}`} style={{ alignSelf: "flex-start" }}>
-                {adminUser.role === "super_admin" ? "Super Admin" : "Principal"}
-              </span>
+              {adminUser ? (
+                <span className={`badge ${adminUser.role === "super_admin" ? "badge-purple" : "badge-blue"}`} style={{ alignSelf: "flex-start" }}>
+                  {adminUser.role === "super_admin" ? "Super Admin" : "Principal"}
+                </span>
+              ) : (
+                <span className="badge badge-blue" style={{ alignSelf: "flex-start" }}>
+                  Staff: {loggedInStaff?.name}
+                </span>
+              )}
               <button
                 onClick={handleLogoutClick}
                 className="btn btn-danger mobile-logout-btn"

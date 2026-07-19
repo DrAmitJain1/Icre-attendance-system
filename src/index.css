@@ -1649,4 +1649,578 @@ tr:hover td {
   }
 }
 
+/* --- 11. Student Attendance Roster Styles --- */
+.roster-card {
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+  border-radius: 12px;
+  background-color: #ffffff;
+  margin-top: 1rem;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  max-height: 350px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: #f8fafc;
+}
+
+.roster-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.roster-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.roster-item.present {
+  border-left: 4px solid var(--accent-green);
+  border-color: rgba(16, 185, 129, 0.2);
+  background-color: rgba(16, 185, 129, 0.02);
+}
+
+.roster-item.absent {
+  border-left: 4px solid var(--accent-red);
+  border-color: rgba(239, 108, 108, 0.2);
+  background-color: rgba(239, 108, 108, 0.02);
+}
+
+.roster-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.roster-item-roll {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.roster-item-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.roster-toggle-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.roster-toggle-badge.badge-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+}
+
+.roster-toggle-badge.badge-danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.roster-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+}
+
+/* Compact Roll No Toggles */
+.roster-item.compact-toggle {
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  padding: 0.5rem 0.25rem !important;
+  min-height: 72px;
+  min-width: 60px;
+  border-radius: 10px !important;
+  border: 2px solid var(--border-color) !important;
+  transition: all var(--transition-fast) ease-in-out;
+  box-shadow: none !important;
+}
+
+.roster-item.compact-toggle .roll-number {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 0.15rem;
+}
+
+.roster-item.compact-toggle .student-name-compact {
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 90%;
+}
+
+.roster-item.compact-toggle.present {
+  border-color: #22c55e !important;
+  background-color: rgba(34, 197, 94, 0.06) !important;
+  color: #15803d !important;
+}
+
+.roster-item.compact-toggle.present:hover {
+  background-color: rgba(34, 197, 94, 0.12) !important;
+}
+
+.roster-item.compact-toggle.present .student-name-compact {
+  color: #15803d !important;
+  opacity: 0.85;
+}
+
+.roster-item.compact-toggle.absent {
+  border-color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.06) !important;
+  color: #b91c1c !important;
+}
+
+.roster-item.compact-toggle.absent:hover {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.roster-item.compact-toggle.absent .student-name-compact {
+  color: #b91c1c !important;
+  opacity: 0.85;
+}
+
+/* Staff Dashboard Layout */
+.staff-dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.staff-dashboard-tabs {
+  display: flex;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 0.4rem;
+  border-radius: 12px;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  align-self: flex-start;
+}
+
+.staff-tab-button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.2rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.staff-tab-button:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.staff-tab-button.active {
+  color: var(--accent-blue);
+  background-color: rgba(59, 130, 246, 0.08);
+}
+
+.staff-dashboard-content {
+  width: 100%;
+}
+
+.staff-view-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+/* Statistics View */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.stats-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: transform var(--transition-fast) ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+}
+
+.stats-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+.stats-card-icon.lectures {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+}
+
+.stats-card-icon.monthly {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+}
+
+.stats-card-icon.absentees {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.stats-card-info h3 {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 0.25rem 0;
+}
+
+.stats-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* History Logs Table */
+.history-table {
+  margin-top: 1rem;
+}
+
+.history-table th {
+  background-color: rgba(255, 255, 255, 0.015);
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-align: left;
+  padding: 1rem;
+  font-size: 0.85rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.history-table td {
+  padding: 1rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.history-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.dept-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  background-color: rgba(59, 130, 246, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  margin-bottom: 0.25rem;
+}
+
+.sem-subtext {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.abs-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.abs-badge.has-abs {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.abs-badge.zero-abs {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+}
+
+.roll-nos-cell {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Profile Card View */
+.profile-card {
+  background-color: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.profile-title h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.profile-role-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.profile-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 600px) {
+  .staff-dashboard-tabs {
+    align-self: stretch;
+    flex-wrap: wrap;
+  }
+  .staff-tab-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* History Filters Bar */
+.history-filters-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.015);
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filter-item label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.filter-select {
+  font-size: 0.85rem !important;
+  padding: 0.5rem 0.75rem !important;
+  height: 38px !important;
+  border-radius: 8px !important;
+}
+
+.btn-export {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: var(--accent-blue) !important;
+  background-color: rgba(59, 130, 246, 0.05) !important;
+  transition: all var(--transition-fast) ease;
+}
+
+.btn-export:hover {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  border-color: var(--accent-blue) !important;
+}
+
+/* Dashboard Charts Panel */
+.chart-panel-card {
+  background-color: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.chart-panel-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.chart-panel-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.chart-switch-btn {
+  transition: all var(--transition-fast) ease-in-out;
+}
+
+.chart-switch-btn:hover {
+  color: var(--text-primary) !important;
+}
+
+.chart-switch-btn.active {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Custom SVG Trend Graph Styling */
+.gridline-group line {
+  stroke: var(--border-color);
+  opacity: 0.5;
+}
+
+.chart-marker-group circle {
+  transition: r 0.2s ease;
+  cursor: pointer;
+}
+
+.chart-marker-group:hover circle {
+  r: 6.5;
+}
+
+.chart-marker-group text {
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(2px);
+  pointer-events: none;
+}
+
+.chart-marker-group:hover text {
+  opacity: 1;
+  transform: translateY(0px);
+}
+
+/* Horizontal Progress Bar Statistics Custom CSS styling */
+.bar-stat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bar-track {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.bar-fill.green {
+  background: linear-gradient(90deg, #10b981, #22c55e);
+}
+
+.bar-fill.yellow {
+  background: linear-gradient(90deg, #f59e0b, #eab308);
+}
+
+.bar-fill.red {
+  background: linear-gradient(90deg, #ef4444, #f43f5e);
+}
+
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Header, type ViewState } from "./components/Header";
 import { StaffForm } from "./components/StaffForm";
+import { StaffDashboard } from "./components/StaffDashboard";
 import { Login } from "./components/Login";
 import { PrincipalDashboard } from "./components/PrincipalDashboard";
 import { SuperAdminPanel } from "./components/SuperAdminPanel";
@@ -8,7 +9,9 @@ import {
   subscribeToAuthChanges, 
   logoutUser, 
   initializeSubjectsIfNeeded,
+  initializeStudentsIfNeeded,
   type AuthUser, 
+  type Staff,
   IS_FIREBASE_CONFIGURED 
 } from "./firebase";
 import { Info, HelpCircle, X } from "lucide-react";
@@ -16,29 +19,62 @@ import { Info, HelpCircle, X } from "lucide-react";
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>("staff");
   const [adminUser, setAdminUser] = useState<AuthUser | null>(null);
+  const [loggedInStaff, setLoggedInStaff] = useState<Staff | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [requestedRole, setRequestedRole] = useState<"principal" | "super_admin">("principal");
+  const [requestedRole, setRequestedRole] = useState<"principal" | "super_admin" | "staff">("staff");
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  const setPersistedView = (view: ViewState) => {
+    setCurrentView(view);
+    localStorage.setItem("attendance_current_view", view);
+  };
+
+  // Load saved session and view on mount
+  useEffect(() => {
+    const savedStaff = localStorage.getItem("attendance_logged_in_staff");
+    if (savedStaff) {
+      try {
+        setLoggedInStaff(JSON.parse(savedStaff));
+      } catch (e) {
+        console.error("Failed to restore staff session:", e);
+      }
+    }
+
+    const savedView = localStorage.getItem("attendance_current_view") as ViewState | null;
+    if (savedView) {
+      setCurrentView(savedView);
+    }
+  }, []);
 
   // Initialize DB Seeds & Auth Changes
   useEffect(() => {
-    // 1. If Firebase is active, auto-seed the subjects catalog if empty
+    // 1. If Firebase is active, auto-seed the subjects & students catalog if empty
     if (IS_FIREBASE_CONFIGURED) {
       initializeSubjectsIfNeeded();
+      initializeStudentsIfNeeded();
     }
 
     // 2. Subscribe to auth changes
     const unsubscribe = subscribeToAuthChanges((user) => {
       setAdminUser(user);
+      setLoadingAuth(false);
       
+      const savedView = localStorage.getItem("attendance_current_view") as ViewState | null;
+
       if (user) {
-        // If logged in from the login view, redirect to their home panel
-        if (currentView === "login") {
-          setCurrentView(user.role === "super_admin" ? "superadmin" : "dashboard");
+        // If logged in as admin, check if their current view is login or default staff view
+        if (currentView === "login" || (currentView === "staff" && !localStorage.getItem("attendance_logged_in_staff"))) {
+          const nextView = user.role === "super_admin" ? "superadmin" : "dashboard";
+          setPersistedView(nextView);
+        } else if (savedView) {
+          setCurrentView(savedView);
         }
       } else {
-        // If signed out, force back to staff view or login
+        // If signed out, force back to staff view if currently in admin dashboards
         if (currentView === "dashboard" || currentView === "superadmin") {
-          setCurrentView("staff");
+          setPersistedView("staff");
+        } else if (savedView) {
+          setCurrentView(savedView);
         }
       }
     });
@@ -47,38 +83,59 @@ export const App: React.FC = () => {
   }, [currentView]);
 
   const handleLogout = async () => {
-    try {
-      await logoutUser();
-      setCurrentView("staff");
-    } catch (error) {
-      console.error("Sign out error:", error);
+    if (loggedInStaff) {
+      setLoggedInStaff(null);
+      localStorage.removeItem("attendance_logged_in_staff");
+      setPersistedView("staff");
+    } else {
+      try {
+        await logoutUser();
+        setPersistedView("staff");
+      } catch (error) {
+        console.error("Sign out error:", error);
+      }
     }
   };
 
-  const handleLoginSuccess = (user: AuthUser) => {
-    setAdminUser(user);
-    setCurrentView(user.role === "super_admin" ? "superadmin" : "dashboard");
+  const handleLoginSuccess = (user: any) => {
+    if (requestedRole === "staff") {
+      setLoggedInStaff(user);
+      localStorage.setItem("attendance_logged_in_staff", JSON.stringify(user));
+      setPersistedView("staff");
+    } else {
+      setAdminUser(user);
+      setPersistedView(user.role === "super_admin" ? "superadmin" : "dashboard");
+    }
   };
 
   const handleViewChange = (view: ViewState) => {
     if (view === "dashboard") {
       if (adminUser && adminUser.role === "principal") {
-        setCurrentView("dashboard");
+        setPersistedView("dashboard");
       } else {
         setRequestedRole("principal");
-        setCurrentView("login");
+        setPersistedView("login");
       }
     } else if (view === "superadmin") {
       if (adminUser && adminUser.role === "super_admin") {
-        setCurrentView("superadmin");
+        setPersistedView("superadmin");
       } else {
         setRequestedRole("super_admin");
-        setCurrentView("login");
+        setPersistedView("login");
       }
     } else {
-      setCurrentView(view);
+      setPersistedView(view);
     }
   };
+
+  if (loadingAuth) {
+    return (
+      <div className="roster-loading-container" style={{ height: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+        <div className="spinner"></div>
+        <p style={{ marginTop: "1rem", color: "var(--text-secondary)", fontWeight: 600 }}>Resuming session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -110,12 +167,26 @@ export const App: React.FC = () => {
         currentView={currentView}
         onViewChange={handleViewChange}
         adminUser={adminUser}
+        loggedInStaff={loggedInStaff}
         onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
       <main className="main-content">
-        {currentView === "staff" && <StaffForm />}
+        {currentView === "staff" && (
+          loggedInStaff ? (
+            <StaffDashboard loggedInStaff={loggedInStaff} />
+          ) : (
+            <Login 
+              onLoginSuccess={(staff) => {
+                setRequestedRole("staff");
+                setLoggedInStaff(staff);
+                localStorage.setItem("attendance_logged_in_staff", JSON.stringify(staff));
+              }} 
+              requestedRole="staff" 
+            />
+          )
+        )}
         
         {currentView === "login" && (
           <Login onLoginSuccess={handleLoginSuccess} requestedRole={requestedRole} />
