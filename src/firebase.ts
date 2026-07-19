@@ -23,7 +23,7 @@ import {
   type DocumentData,
   writeBatch as fbWriteBatch
 } from "firebase/firestore";
-import { SUBJECT_MAPPING, DEPARTMENTS, SEMESTERS } from "./subjects";
+import { SUBJECT_MAPPING, DEPARTMENTS, SEMESTERS, type Department, type Semester } from "./subjects";
 
 // --- INTERFACES ---
 
@@ -47,6 +47,8 @@ export interface Staff {
   id?: string;
   name: string;
   department: string;
+  email?: string;
+  password?: string;
   createdAt: number;
 }
 

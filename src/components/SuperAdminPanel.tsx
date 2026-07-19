@@ -117,7 +117,7 @@ export const SuperAdminPanel: React.FC = () => {
   const [editingStudentName, setEditingStudentName] = useState("");
 
   // Student Excel Import State
-  const [studImportRows, setStudImportRows] = useState<{ rollNo: string; name: string; valid: boolean; reason?: string }[]>([]);
+  const [studImportRows, setStudImportRows] = useState<{ rollNo: string; name: string; department: Department | ""; semester: Semester | ""; academicYear: string; valid: boolean; reason?: string }[]>([]);
   const [studImportUploading, setStudImportUploading] = useState(false);
   const [studImportDone, setStudImportDone] = useState<{ added: number; skipped: number } | null>(null);
   const [studImportError, setStudImportError] = useState<string | null>(null);

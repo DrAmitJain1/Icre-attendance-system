@@ -16,7 +16,6 @@ import {
   FolderOpen, 
   AlertCircle,
   FileSpreadsheet,
-  TrendingDown,
   TrendingUp,
   Activity,
   Percent,
