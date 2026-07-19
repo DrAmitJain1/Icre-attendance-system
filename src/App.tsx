@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Header, type ViewState } from "./components/Header";
+// import { StaffForm } from "./components/StaffForm";
+import { StaffDashboard } from "./components/StaffDashboard";
 import { Login } from "./components/Login";
 import { PrincipalDashboard } from "./components/PrincipalDashboard";
 import { SuperAdminPanel } from "./components/SuperAdminPanel";
@@ -7,6 +9,7 @@ import {
   subscribeToAuthChanges,
   logoutUser,
   initializeSubjectsIfNeeded,
+  initializeStudentsIfNeeded,
   type AuthUser,
   type Staff,
   IS_FIREBASE_CONFIGURED
@@ -19,8 +22,14 @@ export const App: React.FC = () => {
   const [loggedInStaff, setLoggedInStaff] = useState<Staff | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [requestedRole, setRequestedRole] = useState<"principal" | "super_admin" | "staff">("staff");
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // Load saved staff session on mount
+  const setPersistedView = (view: ViewState) => {
+    setCurrentView(view);
+    localStorage.setItem("attendance_current_view", view);
+  };
+
+  // Load saved session and view on mount
   useEffect(() => {
     const savedStaff = localStorage.getItem("attendance_logged_in_staff");
     if (savedStaff) {
@@ -30,28 +39,42 @@ export const App: React.FC = () => {
         console.error("Failed to restore staff session:", e);
       }
     }
+
+    const savedView = localStorage.getItem("attendance_current_view") as ViewState | null;
+    if (savedView) {
+      setCurrentView(savedView);
+    }
   }, []);
 
   // Initialize DB Seeds & Auth Changes
   useEffect(() => {
-    // 1. If Firebase is active, auto-seed the subjects catalog if empty
+    // 1. If Firebase is active, auto-seed the subjects & students catalog if empty
     if (IS_FIREBASE_CONFIGURED) {
       initializeSubjectsIfNeeded();
+      initializeStudentsIfNeeded();
     }
 
     // 2. Subscribe to auth changes
     const unsubscribe = subscribeToAuthChanges((user) => {
       setAdminUser(user);
+      setLoadingAuth(false);
+
+      const savedView = localStorage.getItem("attendance_current_view") as ViewState | null;
 
       if (user) {
-        // If logged in from the login view, redirect to their home panel
-        if (currentView === "login") {
-          setCurrentView(user.role === "super_admin" ? "superadmin" : "dashboard");
+        // If logged in as admin, check if their current view is login or default staff view
+        if (currentView === "login" || (currentView === "staff" && !localStorage.getItem("attendance_logged_in_staff"))) {
+          const nextView = user.role === "super_admin" ? "superadmin" : "dashboard";
+          setPersistedView(nextView);
+        } else if (savedView) {
+          setCurrentView(savedView);
         }
       } else {
-        // If signed out, force back to staff view or login
+        // If signed out, force back to staff view if currently in admin dashboards
         if (currentView === "dashboard" || currentView === "superadmin") {
-          setCurrentView("staff");
+          setPersistedView("staff");
+        } else if (savedView) {
+          setCurrentView(savedView);
         }
       }
     });
@@ -63,11 +86,11 @@ export const App: React.FC = () => {
     if (loggedInStaff) {
       setLoggedInStaff(null);
       localStorage.removeItem("attendance_logged_in_staff");
-      setCurrentView("staff");
+      setPersistedView("staff");
     } else {
       try {
         await logoutUser();
-        setCurrentView("staff");
+        setPersistedView("staff");
       } catch (error) {
         console.error("Sign out error:", error);
       }
@@ -78,32 +101,41 @@ export const App: React.FC = () => {
     if (requestedRole === "staff") {
       setLoggedInStaff(user);
       localStorage.setItem("attendance_logged_in_staff", JSON.stringify(user));
-      setCurrentView("staff");
+      setPersistedView("staff");
     } else {
       setAdminUser(user);
-      setCurrentView(user.role === "super_admin" ? "superadmin" : "dashboard");
+      setPersistedView(user.role === "super_admin" ? "superadmin" : "dashboard");
     }
   };
 
   const handleViewChange = (view: ViewState) => {
     if (view === "dashboard") {
       if (adminUser && adminUser.role === "principal") {
-        setCurrentView("dashboard");
+        setPersistedView("dashboard");
       } else {
         setRequestedRole("principal");
-        setCurrentView("login");
+        setPersistedView("login");
       }
     } else if (view === "superadmin") {
       if (adminUser && adminUser.role === "super_admin") {
-        setCurrentView("superadmin");
+        setPersistedView("superadmin");
       } else {
         setRequestedRole("super_admin");
-        setCurrentView("login");
+        setPersistedView("login");
       }
     } else {
-      setCurrentView(view);
+      setPersistedView(view);
     }
   };
+
+  if (loadingAuth) {
+    return (
+      <div className="roster-loading-container" style={{ height: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+        <div className="spinner"></div>
+        <p style={{ marginTop: "1rem", color: "var(--text-secondary)", fontWeight: 600 }}>Resuming session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -143,7 +175,7 @@ export const App: React.FC = () => {
       <main className="main-content">
         {currentView === "staff" && (
           loggedInStaff ? (
-            <StaffForm loggedInStaff={loggedInStaff} />
+            <StaffDashboard loggedInStaff={loggedInStaff} />
           ) : (
             <Login
               onLoginSuccess={(staff) => {
@@ -212,7 +244,7 @@ export const App: React.FC = () => {
             </ol>
 
             <pre>
-              {`VITE_FIREBASE_API_KEY=AIzaSy...
+{`VITE_FIREBASE_API_KEY=AIzaSy...
 VITE_FIREBASE_AUTH_DOMAIN=app-name.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=app-name
 VITE_FIREBASE_STORAGE_BUCKET=app-name.appspot.com
@@ -229,35 +261,6 @@ VITE_SUPER_ADMIN_PASSWORD=superadmin123`}
         </div>
       )}
     </div>
-  );
-};
-export default App;
-
-            <ol>
-              <li>Go to the <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" style={{ color: "var(--accent-blue)" }}>Firebase Console</a> and create a new project.</li>
-              <li>Under project settings, register a new <strong>Web App</strong> to retrieve your config keys.</li>
-              <li>Enable <strong>Firestore Database</strong> (rules must allow writes/reads) and <strong>Authentication</strong> (enable Email/Password provider).</li>
-              <li>Create a <code>.env.local</code> file in this workspace root (based on <code>.env.example</code>) and insert your credentials:</li>
-            </ol>
-
-            <pre>
-{`VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=app-name.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=app-name
-VITE_FIREBASE_STORAGE_BUCKET=app-name.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:1234:web:abcd
-VITE_SUPER_ADMIN_EMAIL=superadmin@attendance.com
-VITE_SUPER_ADMIN_PASSWORD=superadmin123`}
-            </pre>
-
-            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: 0 }}>
-              <strong>For Vercel Deployments:</strong> Go to your Vercel Dashboard → Project Settings → Environment Variables, and add each of these keys there so they are populated securely.
-            </p>
-          </div >
-        </div >
-      )}
-    </div >
   );
 };
 export default App;
