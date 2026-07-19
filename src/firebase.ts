@@ -23,7 +23,7 @@ import {
   type DocumentData,
   writeBatch as fbWriteBatch
 } from "firebase/firestore";
-import { SUBJECT_MAPPING, DEPARTMENTS, SEMESTERS, type Department, type Semester } from "./subjects";
+import { SUBJECT_MAPPING, DEPARTMENTS, SEMESTERS, type Semester } from "./subjects";
 
 // --- INTERFACES ---
 
