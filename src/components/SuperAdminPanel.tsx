@@ -420,7 +420,7 @@ export const SuperAdminPanel: React.FC = () => {
     const templateData = [
       { "Staff Name": "Prof. Amit Patil", "Department": "Computer Engineering" },
       { "Staff Name": "Prof. Priya Sharma", "Department": "Electronics & Tele. Comm. Engineering" },
-      { "Staff Name": "Prof. Rahul Desai", "Department": "Mechanical Engineering" },
+      { "Staff Name": "Prof. Rahul Desai", "Department": "Mechanical Engineering - Div A" },
     ];
     const ws = XLSX.utils.json_to_sheet(templateData);
     ws["!cols"] = [{ wch: 30 }, { wch: 35 }];
@@ -562,7 +562,7 @@ export const SuperAdminPanel: React.FC = () => {
       { 
         "Roll No": "1", 
         "Student Name": "Rahul Patil", 
-        "Department": "Mechanical Engineering", 
+        "Department": "Mechanical Engineering - Div A", 
         "Semester": "Semester 1", 
         "Academic Year": "2026-2027" 
       },

@@ -40,6 +40,7 @@ export interface AttendanceRecord {
   startTime: string;
   endTime: string;
   absentNos: string;
+  isExtraLecture?: boolean;
   createdAt: number;
 }
 
@@ -162,16 +163,16 @@ const PDF_STAFF_RAW = [
   { name: "Pramod Inchanalkar", department: "Electronics & Tele. Comm. Engineering", shortName: "Pramod Inchanalkar" },
   { name: "Deepak Khot", department: "Electronics & Tele. Comm. Engineering", shortName: "Deepak Khot" },
   { name: "Deepak Otari", department: "Electronics & Tele. Comm. Engineering", shortName: "Deepak Otari" },
-  { name: "Chandrakant Mane", department: "Mechanical Engineering", shortName: "Chandrakant Mane" },
-  { name: "Arvind Gojare", department: "Mechanical Engineering", shortName: "Arvind Gojare" },
-  { name: "Kiran Huparikar", department: "Mechanical Engineering", shortName: "Kiran Huparikar" },
-  { name: "Nandkumar Raul", department: "Mechanical Engineering", shortName: "Nandkumar Raul" },
-  { name: "Onkar Hajare", department: "Mechanical Engineering", shortName: "Onkar Hajare" },
-  { name: "Sagar Patil", department: "Mechanical Engineering", shortName: "Sagar Patil" },
-  { name: "Sourabh Varne", department: "Mechanical Engineering", shortName: "Sourabh Varne" },
-  { name: "Tushar Choutre", department: "Mechanical Engineering", shortName: "Tushar Choutre" },
-  { name: "Uday Patil", department: "Mechanical Engineering", shortName: "Uday Patil" },
-  { name: "Vijay Sawardekar", department: "Mechanical Engineering", shortName: "Vijay Sawardekar" },
+  { name: "Chandrakant Mane", department: "Mechanical Engineering - Div A", shortName: "Chandrakant Mane" },
+  { name: "Arvind Gojare", department: "Mechanical Engineering - Div A", shortName: "Arvind Gojare" },
+  { name: "Kiran Huparikar", department: "Mechanical Engineering - Div A", shortName: "Kiran Huparikar" },
+  { name: "Nandkumar Raul", department: "Mechanical Engineering - Div A", shortName: "Nandkumar Raul" },
+  { name: "Onkar Hajare", department: "Mechanical Engineering - Div A", shortName: "Onkar Hajare" },
+  { name: "Sagar Patil", department: "Mechanical Engineering - Div A", shortName: "Sagar Patil" },
+  { name: "Sourabh Varne", department: "Mechanical Engineering - Div A", shortName: "Sourabh Varne" },
+  { name: "Tushar Choutre", department: "Mechanical Engineering - Div A", shortName: "Tushar Choutre" },
+  { name: "Uday Patil", department: "Mechanical Engineering - Div A", shortName: "Uday Patil" },
+  { name: "Vijay Sawardekar", department: "Mechanical Engineering - Div A", shortName: "Vijay Sawardekar" },
   { name: "Dr. Ujwala Solase", department: "Science & Humanities", shortName: "Ujwala Solase" },
   { name: "Dr. Pravin Vhangutte", department: "Science & Humanities", shortName: "Pravin Vhangutte" },
   { name: "Rajvardhan Ingale", department: "Science & Humanities", shortName: "Rajvardhan Ingale" },
@@ -199,6 +200,37 @@ const DEFAULT_DEMO_PRINCIPALS: Principal[] = [
 
 // Initialize local storage collections if they don't exist
 const initializeDemoDB = () => {
+  // Clear simulated databases if they contain the deprecated parent Mechanical Engineering department or lack full rosters
+  const storedStaff = localStorage.getItem("attendance_staff_sim");
+  let storedStudents = localStorage.getItem("attendance_students_sim");
+  let shouldReset = false;
+
+  if (storedStaff) {
+    const list: Staff[] = JSON.parse(storedStaff);
+    if (list.some(s => s.department === "Mechanical Engineering")) {
+      shouldReset = true;
+    }
+  }
+
+  if (storedStudents) {
+    const list: Student[] = JSON.parse(storedStudents);
+    const hasParentMech = list.some(s => s.department === "Mechanical Engineering");
+    const hasDivA = list.some(s => s.department === "Mechanical Engineering - Div A");
+    // If it lacks Div A/B or does not contain all semesters of the mechanical classes (expected size > 1000)
+    if (hasParentMech || !hasDivA || list.length < 1000) {
+      shouldReset = true;
+    }
+  } else {
+    shouldReset = true;
+  }
+
+  if (shouldReset) {
+    localStorage.removeItem("attendance_staff_sim");
+    localStorage.removeItem("attendance_students_sim");
+    localStorage.removeItem("attendance_records_sim");
+    localStorage.removeItem("attendance_subjects_sim");
+  }
+
   if (!localStorage.getItem("attendance_staff_sim")) {
     localStorage.setItem("attendance_staff_sim", JSON.stringify(DEFAULT_DEMO_STAFF));
   }
@@ -223,7 +255,8 @@ const initializeDemoDB = () => {
     });
     localStorage.setItem("attendance_subjects_sim", JSON.stringify(initialSubjects));
   }
-  const storedStudents = localStorage.getItem("attendance_students_sim");
+
+  storedStudents = localStorage.getItem("attendance_students_sim");
   if (!storedStudents || JSON.parse(storedStudents).length === 0) {
     const initialStudents: Student[] = [];
     const mockNames = [
@@ -235,8 +268,9 @@ const initializeDemoDB = () => {
     DEPARTMENTS.forEach(dept => {
       const sems = dept === "Science & Humanities" ? ["Semester 1", "Semester 2"] : SEMESTERS;
       sems.forEach(sem => {
-        // Create 15 mock students for each class
-        for (let r = 1; r <= 15; r++) {
+        // Mock 60 students for Div A, 65 for Div B, and 15 for other classes
+        const studentCount = dept === "Mechanical Engineering - Div A" ? 60 : (dept === "Mechanical Engineering - Div B" ? 65 : 15);
+        for (let r = 1; r <= studentCount; r++) {
           const nameIndex = (dept.charCodeAt(0) + sem.charCodeAt(9) + r) % mockNames.length;
           initialStudents.push({
             id: `sim_stud_${dept.slice(0,3).replace(/\s+/g, "")}_${sem.slice(-1)}_${r}`,
@@ -251,6 +285,57 @@ const initializeDemoDB = () => {
       });
     });
     localStorage.setItem("attendance_students_sim", JSON.stringify(initialStudents));
+  }
+
+  // Seed mock attendance records for both Mechanical divisions to show dynamic statistics immediately
+  const storedRecords = localStorage.getItem("attendance_records_sim");
+  if (!storedRecords || JSON.parse(storedRecords).length === 0) {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+    const mockRecords: AttendanceRecord[] = [];
+
+    // Seed 10 records for Div A
+    const datesDivA = ["02", "04", "06", "08", "10", "12", "14", "16", "18", "20"];
+    datesDivA.forEach((day, idx) => {
+      mockRecords.push({
+        id: `sim_rec_mecha_${idx}`,
+        academicYear: "2026-2027",
+        department: "Mechanical Engineering - Div A",
+        staffDepartment: "Mechanical Engineering - Div A",
+        semester: "Semester 3",
+        subject: idx % 2 === 0 ? "Thermal Engineering" : "Machine Drawing",
+        lectureType: "Lecture",
+        staffName: "Chandrakant Mane",
+        date: `${day}/${mm}/${yyyy}`,
+        startTime: "09:00",
+        endTime: "10:00",
+        absentNos: idx % 3 === 0 ? "5,12" : (idx % 3 === 1 ? "24" : ""),
+        createdAt: Date.now() - (10 - idx) * 3600 * 1000
+      });
+    });
+
+    // Seed 10 records for Div B
+    const datesDivB = ["03", "05", "07", "09", "11", "13", "15", "17", "19", "20"];
+    datesDivB.forEach((day, idx) => {
+      mockRecords.push({
+        id: `sim_rec_mechb_${idx}`,
+        academicYear: "2026-2027",
+        department: "Mechanical Engineering - Div B",
+        staffDepartment: "Mechanical Engineering - Div A",
+        semester: "Semester 3",
+        subject: idx % 2 === 0 ? "Manufacturing Processes" : "Strength of Materials",
+        lectureType: "Lecture",
+        staffName: "Arvind Gojare",
+        date: `${day}/${mm}/${yyyy}`,
+        startTime: "10:00",
+        endTime: "11:00",
+        absentNos: idx % 3 === 0 ? "8,45,61" : (idx % 3 === 1 ? "19,33" : ""),
+        createdAt: Date.now() - (10 - idx) * 3600 * 1000
+      });
+    });
+
+    localStorage.setItem("attendance_records_sim", JSON.stringify(mockRecords));
   }
 };
 
@@ -403,9 +488,10 @@ export const loginStaff = async (email: string, password: string): Promise<Staff
 // --- 2. SUBJECTS CRUD FUNCTIONS ---
 
 export const getSubjects = async (department: string, semester?: string): Promise<SubjectItem[]> => {
+  const targetDept = department.startsWith("Mechanical Engineering") ? "Mechanical Engineering" : department;
   if (IS_FIREBASE_CONFIGURED && db) {
     const collRef = fbCollection(db, "subjects");
-    const constraints = [fbWhere("department", "==", department)];
+    const constraints = [fbWhere("department", "==", targetDept)];
     if (semester) {
       constraints.push(fbWhere("semester", "==", semester));
     }
@@ -427,15 +513,16 @@ export const getSubjects = async (department: string, semester?: string): Promis
   } else {
     // Simulated Mode
     const list: SubjectItem[] = JSON.parse(localStorage.getItem("attendance_subjects_sim") || "[]");
-    const filtered = list.filter(s => s.department === department && (!semester || s.semester === semester));
+    const filtered = list.filter(s => s.department === targetDept && (!semester || s.semester === semester));
     return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }
 };
 
 export const addSubject = async (name: string, department: string, semester: string): Promise<void> => {
+  const targetDept = department.startsWith("Mechanical Engineering") ? "Mechanical Engineering" : department;
   const subjectItem: Omit<SubjectItem, "id"> = {
     name: name.trim(),
-    department,
+    department: targetDept,
     semester,
     createdAt: Date.now()
   };
@@ -1181,6 +1268,41 @@ export const subscribeToSystemSettings = (
       } else {
         onUpdate({ dateLocked: false });
       }
+    };
+    checkLocal();
+    window.addEventListener("storage", checkLocal);
+    return () => {
+      window.removeEventListener("storage", checkLocal);
+    };
+  }
+};
+
+export const subscribeToStaff = (
+  onUpdate: (staffList: Staff[]) => void
+) => {
+  if (IS_FIREBASE_CONFIGURED && db) {
+    const collRef = fbCollection(db, "staff");
+    return fbOnSnapshot(
+      fbQuery(collRef, fbOrderBy("name")),
+      (snapshot) => {
+        const list: Staff[] = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          list.push({
+            id: doc.id,
+            name: data.name,
+            department: data.department,
+            email: data.email,
+            createdAt: data.createdAt || 0
+          });
+        });
+        onUpdate(list);
+      }
+    );
+  } else {
+    const checkLocal = () => {
+      const list: Staff[] = JSON.parse(localStorage.getItem("attendance_staff_sim") || "[]");
+      onUpdate(list.sort((a, b) => a.name.localeCompare(b.name)));
     };
     checkLocal();
     window.addEventListener("storage", checkLocal);

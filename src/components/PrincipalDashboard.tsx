@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { 
   subscribeToAttendanceRecords, 
   subscribeToStudents,
+  subscribeToStaff,
   getSubjects,
   type AttendanceRecord,
-  type Student
+  type Student,
+  type Staff
 } from "../firebase";
 import { DEPARTMENTS, SEMESTERS, type Department, type Semester } from "../subjects";
 import { 
@@ -40,7 +42,9 @@ export const PrincipalDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Layout Tab State
-  const [section, setSection] = useState<"logs" | "defaulters">("logs");
+  const [section, setSection] = useState<"logs" | "defaulters" | "staffStats">("logs");
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [selectedTrackingStaff, setSelectedTrackingStaff] = useState<string>("");
 
   // Logs Filters State
   const [startDate, setStartDate] = useState("");
@@ -78,6 +82,15 @@ export const PrincipalDashboard: React.FC = () => {
       }
     );
 
+    const unsubscribeStaff = subscribeToStaff(
+      (data) => {
+        setStaffList(data);
+      },
+      (err) => {
+        console.error("Database Staff Subscription Error:", err);
+      }
+    );
+
     // Default month picker to current year-month
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -87,6 +100,7 @@ export const PrincipalDashboard: React.FC = () => {
     return () => {
       unsubscribeLogs();
       unsubscribeStudents();
+      unsubscribeStaff();
     };
   }, []);
 
@@ -703,6 +717,13 @@ export const PrincipalDashboard: React.FC = () => {
             <UserX size={16} />
             <span>Defaulters Registry (&lt; 75% Attendance)</span>
           </button>
+          <button
+            className={`nav-btn ${section === "staffStats" ? "active" : ""}`}
+            onClick={() => setSection("staffStats")}
+          >
+            <Users size={16} />
+            <span>Staff Proxy & Performance Tracker</span>
+          </button>
         </div>
 
         {/* --- VIEW 1: DAILY ATTENDANCE LOGS --- */}
@@ -910,6 +931,25 @@ export const PrincipalDashboard: React.FC = () => {
                             >
                               {r.lectureType || "Lecture"}
                             </span>
+                            {r.isExtraLecture && (
+                              <span 
+                                style={{ 
+                                  display: "inline-block", 
+                                  fontSize: "0.7rem", 
+                                  padding: "0.15rem 0.4rem", 
+                                  borderRadius: "4px", 
+                                  marginTop: "0.35rem", 
+                                  marginLeft: "0.35rem",
+                                  fontWeight: 700,
+                                  textTransform: "uppercase",
+                                  color: "#f472b6", 
+                                  backgroundColor: "rgba(236, 72, 153, 0.12)",
+                                  border: "1px solid rgba(236, 72, 153, 0.25)"
+                                }}
+                              >
+                                Extra Lecture
+                              </span>
+                            )}
                           </td>
                           <td style={{ textAlign: "center", fontWeight: "bold" }}>
                             <span
@@ -1079,6 +1119,178 @@ export const PrincipalDashboard: React.FC = () => {
                 </div>
               </>
             )}
+          </>
+        )}
+
+        {/* --- VIEW 3: STAFF PROXY & PERFORMANCE TRACKER --- */}
+        {section === "staffStats" && (
+          <>
+            <h3 className="pd-section-title">
+              <Users size={18} style={{ color: "var(--accent-blue)", flexShrink: 0 }} />
+              <span>Staff Performance & Proxy Tracker</span>
+            </h3>
+
+            {/* Staff Selector */}
+            <div className="filters-panel" style={{ marginBottom: "1.5rem" }}>
+              <div className="form-group" style={{ maxWidth: "340px", marginBottom: 0 }}>
+                <label htmlFor="staffSelect" className="pd-filter-label">Select Staff Member</label>
+                <select
+                  id="staffSelect"
+                  value={selectedTrackingStaff}
+                  onChange={(e) => setSelectedTrackingStaff(e.target.value)}
+                  className="pd-filter-select"
+                >
+                  <option value="">-- Choose Faculty Member --</option>
+                  {staffList.map((s) => (
+                    <option key={s.id || s.name} value={s.name}>
+                      {s.name} ({s.department})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {!selectedTrackingStaff ? (
+              <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)" }}>
+                <Users size={48} style={{ opacity: 0.3, marginBottom: "1rem" }} />
+                <p style={{ margin: 0, fontSize: "1.05rem" }}>Please select a staff member from the dropdown above to analyze their session stats and proxy logs.</p>
+              </div>
+            ) : (() => {
+              const staffRecords = records.filter(
+                r => r.staffName.toLowerCase() === selectedTrackingStaff.toLowerCase()
+              );
+              const totalStaffSessions = staffRecords.length;
+              const regularLectures = staffRecords.filter(
+                r => (r.lectureType || "Lecture") === "Lecture" && !r.isExtraLecture
+              ).length;
+              const extraLectures = staffRecords.filter(r => r.isExtraLecture).length;
+              const practicalSessions = staffRecords.filter(r => r.lectureType === "Practical").length;
+
+              let rateSum = 0;
+              staffRecords.forEach(r => {
+                const classCap = students.filter(s => s.department === r.department && s.semester === r.semester).length || 15;
+                const absCount = r.absentNos ? r.absentNos.split(",").map(n => n.trim()).filter(Boolean).length : 0;
+                const rate = Math.max(0, Math.min(100, ((classCap - absCount) / classCap) * 100));
+                rateSum += rate;
+              });
+              const avgCompliance = totalStaffSessions > 0 ? (rateSum / totalStaffSessions).toFixed(1) : "0.0";
+
+              return (
+                <div>
+                  {/* Summary Metric Cards for Selected Staff */}
+                  <div className="dashboard-stats" style={{ marginBottom: "2rem" }}>
+                    <div className="stat-box" style={{ background: "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%)", borderColor: "rgba(59, 130, 246, 0.25)" }}>
+                      <div className="stat-icon" style={{ color: "#3b82f6" }}>
+                        <Layers size={20} />
+                      </div>
+                      <div className="stat-info">
+                        <span className="stat-number">{regularLectures}</span>
+                        <span className="stat-label">Regular Lectures</span>
+                      </div>
+                    </div>
+
+                    <div className="stat-box" style={{ background: "linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(219, 39, 119, 0.08) 100%)", borderColor: "rgba(236, 72, 153, 0.25)" }}>
+                      <div className="stat-icon" style={{ color: "#ec4899" }}>
+                        <Activity size={20} />
+                      </div>
+                      <div className="stat-info">
+                        <span className="stat-number">{extraLectures}</span>
+                        <span className="stat-label">Extra (Proxy) Lectures</span>
+                      </div>
+                    </div>
+
+                    <div className="stat-box" style={{ background: "linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(234, 88, 12, 0.08) 100%)", borderColor: "rgba(249, 115, 22, 0.25)" }}>
+                      <div className="stat-icon" style={{ color: "#f97316" }}>
+                        <Calendar size={20} />
+                      </div>
+                      <div className="stat-info">
+                        <span className="stat-number">{practicalSessions}</span>
+                        <span className="stat-label">Practicals Logged</span>
+                      </div>
+                    </div>
+
+                    <div className="stat-box stat-success">
+                      <div className="stat-icon">
+                        <Percent size={22} />
+                      </div>
+                      <div className="stat-info">
+                        <span className="stat-number">{avgCompliance}%</span>
+                        <span className="stat-label">Avg Session Compliance</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Staff History Table */}
+                  <h4 style={{ margin: "0 0 1rem 0", fontSize: "1.05rem", fontWeight: 600 }}>
+                    Session Log History for {selectedTrackingStaff} ({totalStaffSessions} Total Entries)
+                  </h4>
+
+                  {totalStaffSessions === 0 ? (
+                    <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                      No attendance logs recorded by this faculty member yet.
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="pd-table">
+                        <thead>
+                          <tr>
+                            <th>Date &amp; Time</th>
+                            <th>Classroom Dept</th>
+                            <th>Sem</th>
+                            <th>Subject</th>
+                            <th style={{ textAlign: "center" }}>Session Type</th>
+                            <th style={{ textAlign: "center" }}>Proxy Flag</th>
+                            <th style={{ textAlign: "center" }}>Absentees</th>
+                            <th style={{ textAlign: "center" }}>Class Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {staffRecords.map((r) => {
+                            const classCap = students.filter(s => s.department === r.department && s.semester === r.semester).length || 15;
+                            const absCount = r.absentNos ? r.absentNos.split(",").map(n => n.trim()).filter(Boolean).length : 0;
+                            const rate = Math.max(0, Math.min(100, ((classCap - absCount) / classCap) * 100)).toFixed(1);
+
+                            return (
+                              <tr key={r.id}>
+                                <td style={{ fontWeight: 600 }}>
+                                  <div>{r.date}</div>
+                                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{r.startTime} - {r.endTime}</div>
+                                </td>
+                                <td>{r.department}</td>
+                                <td>{r.semester}</td>
+                                <td style={{ fontWeight: 600 }}>{r.subject}</td>
+                                <td style={{ textAlign: "center" }}>
+                                  <span className={`badge ${r.lectureType === "Practical" ? "badge-warning" : "badge-info"}`}>
+                                    {r.lectureType || "Lecture"}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: "center" }}>
+                                  {r.isExtraLecture ? (
+                                    <span className="badge" style={{ backgroundColor: "rgba(236, 72, 153, 0.15)", color: "#f472b6", border: "1px solid rgba(236, 72, 153, 0.3)" }}>
+                                      Extra Lecture
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Regular</span>
+                                  )}
+                                </td>
+                                <td style={{ textAlign: "center", fontWeight: 600 }}>
+                                  {absCount} / {classCap}
+                                </td>
+                                <td style={{ textAlign: "center", fontWeight: "bold" }}>
+                                  <span className="pd-rate-badge">
+                                    {rate}%
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         )}
       </div>

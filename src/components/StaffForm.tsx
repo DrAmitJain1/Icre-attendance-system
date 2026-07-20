@@ -21,6 +21,7 @@ export const StaffForm: React.FC<StaffFormProps> = ({ loggedInStaff }) => {
   const [endTime, setEndTime] = useState("");
   const [absentNos, setAbsentNos] = useState("");
   const [dateLocked, setDateLocked] = useState(false);
+  const [isExtraLecture, setIsExtraLecture] = useState(false);
 
   // UI state
   const [subjectsList, setSubjectsList] = useState<string[]>([]);
@@ -215,15 +216,17 @@ export const StaffForm: React.FC<StaffFormProps> = ({ loggedInStaff }) => {
         date: dbFormattedDate,
         startTime,
         endTime,
-        absentNos: cleanAbsent
+        absentNos: cleanAbsent,
+        isExtraLecture
       });
 
       // Save staff name to local storage for convenience
       localStorage.setItem("attendance_staff_name", staffName);
 
-      // Trigger success state
+       // Trigger success state
       setSuccess(true);
       setAbsentNos(""); // Clear absentees for subsequent logs
+      setIsExtraLecture(false); // Reset extra lecture proxy checkbox
       
       // Auto dismiss success window after 3 seconds
       setTimeout(() => {
@@ -355,7 +358,7 @@ export const StaffForm: React.FC<StaffFormProps> = ({ loggedInStaff }) => {
             onChange={(e) => setLectureDepartment(e.target.value as Department)}
           >
             <option value="">-- Select Lecture Department --</option>
-            {DEPARTMENTS.map((dept) => (
+            {DEPARTMENTS.filter(d => d !== "Science & Humanities").map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
               </option>
@@ -443,6 +446,20 @@ export const StaffForm: React.FC<StaffFormProps> = ({ loggedInStaff }) => {
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
           />
+        </div>
+
+        {/* Extra Lecture Checkbox */}
+        <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "0.5rem", height: "40px", marginTop: "24px" }}>
+          <input
+            type="checkbox"
+            id="isExtraLecture"
+            checked={isExtraLecture}
+            onChange={(e) => setIsExtraLecture(e.target.checked)}
+            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+          />
+          <label htmlFor="isExtraLecture" style={{ margin: 0, cursor: "pointer", fontWeight: 600, fontSize: "0.85rem" }}>
+            This is an Extra Lecture (Proxy)
+          </label>
         </div>
 
         {/* Student Attendance Roster or Manual Input fallback */}

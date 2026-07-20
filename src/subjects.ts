@@ -4,7 +4,8 @@ export const DEPARTMENTS = [
   "Electronics & Tele. Comm. Engineering",
   "Electrical Engineering",
   "Civil & Rural Engineering",
-  "Mechanical Engineering"
+  "Mechanical Engineering - Div A",
+  "Mechanical Engineering - Div B"
 ] as const;
 
 export type Department = typeof DEPARTMENTS[number];
@@ -20,6 +21,58 @@ export const SEMESTERS = [
 
 export type Semester = typeof SEMESTERS[number];
 
+const mechanicalSubjects = {
+  "Semester 1": [
+    "Basic Mathematics",
+    "Basic Science",
+    "Communication Skills (English)",
+    "Fundamentals of ICT",
+    "Engineering Graphics",
+    "Engineering Workshop Practice",
+    "Yoga and Meditation"
+  ],
+  "Semester 2": [
+    "Applied Mathematics",
+    "Professional Communication",
+    "Engineering Mechanics",
+    "Basic Manufacturing Processes",
+    "Engineering Materials",
+    "Social and Life Skills"
+  ],
+  "Semester 3": [
+    "Manufacturing Processes",
+    "Strength of Materials",
+    "Thermal Engineering",
+    "Machine Drawing",
+    "Computer Aided Drafting",
+    "Essence of Indian Constitution"
+  ],
+  "Semester 4": [
+    "Theory of Machines",
+    "Fluid Mechanics and Machinery",
+    "Metrology and Quality Control",
+    "Hydraulics and Pneumatics",
+    "Electrical and Electronics Engineering",
+    "Environmental Studies"
+  ],
+  "Semester 5": [
+    "Design of Machine Elements",
+    "Industrial Engineering",
+    "CNC Machines and Automation",
+    "Refrigeration and Air Conditioning",
+    "Production Planning and Control",
+    "Capstone Project Planning"
+  ],
+  "Semester 6": [
+    "Automobile Engineering",
+    "Advanced Manufacturing Processes",
+    "Industrial Training / Internship",
+    "Project Work",
+    "Entrepreneurship Development",
+    "Management"
+  ]
+};
+
 export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
   "Science & Humanities": {
     "Semester 1": [
@@ -34,14 +87,9 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
     "Semester 2": [
       "Applied Mathematics",
       "Professional Communication",
-      "Programming in C",
-      "Basic Electrical and Electronics Engineering",
-      "Electronic Components and Devices",
-      "Building Construction",
       "Engineering Mechanics",
-      "Surveying",
-      "Basic Manufacturing Processes",
-      "Engineering Materials",
+      "Applied Science (Physics/Chemistry)",
+      "Basic Electrical and Electronics Engineering",
       "Social and Life Skills"
     ],
     "Semester 3": [],
@@ -63,42 +111,41 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
       "Applied Mathematics",
       "Professional Communication",
       "Programming in C",
-      "Basic Electrical and Electronics Engineering",
-      "Web Page Designing",
-      "Linux Basics",
+      "Basic Electronics",
+      "Web Technologies",
       "Social and Life Skills"
     ],
     "Semester 3": [
-      "Data Structures Using C",
+      "Object Oriented Programming Using C++",
+      "Data Structure Using C",
+      "Computer Graphics",
       "Database Management System",
       "Digital Techniques",
-      "Object Oriented Programming Using C++",
-      "Computer Graphics",
       "Essence of Indian Constitution"
     ],
     "Semester 4": [
       "Java Programming",
-      "Python Programming",
-      "Computer Network",
-      "Microprocessor",
       "Software Engineering",
+      "Data Communication and Computer Network",
+      "Microprocessors",
+      "GUI Application Development Using VB.Net",
       "Environmental Studies"
     ],
     "Semester 5": [
-      "Operating Systems",
+      "Operating System",
       "Advanced Java Programming",
-      "Web-Based Application Development",
-      "Computer Security",
-      "Emerging Trends in Computer Engineering",
+      "Software Testing",
+      "Client Side Scripting Using JavaScript",
+      "Advanced Computer Network",
       "Capstone Project Planning"
     ],
     "Semester 6": [
       "Mobile Application Development",
-      "Cloud Computing",
+      "Emerging Trends in Computer and Information Technology",
+      "Network and Information Security",
       "Industrial Training / Internship",
       "Project Work",
-      "Entrepreneurship Development",
-      "Management"
+      "Entrepreneurship Development"
     ]
   },
   "Electronics & Tele. Comm. Engineering": {
@@ -114,39 +161,39 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
     "Semester 2": [
       "Applied Mathematics",
       "Professional Communication",
-      "Basic Electrical Engineering",
       "Electronic Components and Devices",
-      "Electronic Engineering Workshop",
+      "Electric Circuits and Networks",
+      "Basic Electronics Workshop",
       "Social and Life Skills"
     ],
     "Semester 3": [
-      "Electronic Circuits",
-      "Digital Electronics",
-      "Network Analysis",
-      "Electrical Machines",
-      "Programming in C",
+      "Electronic Devices and Circuits",
+      "Digital Techniques",
+      "Electronics Instruments and Measurement",
+      "Electrical Technology",
+      "C Programming Language",
       "Essence of Indian Constitution"
     ],
     "Semester 4": [
-      "Microcontroller and Applications",
-      "Analog Communication",
       "Linear Integrated Circuits",
-      "Power Electronics",
       "Consumer Electronics",
+      "Microcontroller and Applications",
+      "Basic Feedback Control Systems",
+      "Analog Communication",
       "Environmental Studies"
     ],
     "Semester 5": [
       "Digital Communication",
       "Embedded Systems",
-      "Industrial Electronics",
-      "VLSI",
-      "Computer Hardware and Networking",
+      "Mobile and Wireless Communication",
+      "Industrial Automation",
+      "Microwave and Radar Engineering",
       "Capstone Project Planning"
     ],
     "Semester 6": [
-      "Industrial Automation",
-      "Internet of Things (IoT)",
-      "Microwave and Satellite Communication",
+      "Very Large Scale Integration (VLSI)",
+      "Computer Networking and Data Communication",
+      "Mechatronics",
       "Industrial Training / Internship",
       "Project Work",
       "Entrepreneurship Development"
@@ -166,37 +213,37 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
       "Applied Mathematics",
       "Professional Communication",
       "Basic Electrical Engineering",
-      "Electrical Workshop",
-      "Electronic Components and Devices",
+      "Electrical Materials and Wiring Practice",
+      "General Engineering",
       "Social and Life Skills"
     ],
     "Semester 3": [
       "Electrical Circuits",
-      "Electrical Machines",
-      "Digital Electronics",
-      "Electrical Measuring Instruments",
-      "Programming in C",
+      "Electrical Measurements and Instrumentation",
+      "Electrical Power Generation",
+      "Electrical Transmission and Distribution",
+      "Analog Electronics",
       "Essence of Indian Constitution"
     ],
     "Semester 4": [
-      "Power Generation",
-      "Power Electronics",
-      "Electrical Installation and Maintenance",
-      "AC Machines",
-      "Microcontroller and Applications",
+      "A.C. Machines",
+      "D.C. Machines and Transformers",
+      "Electrical Power Transmission",
+      "Industrial Engineering and Management",
+      "Digital Electronics and Microcontroller Applications",
       "Environmental Studies"
     ],
     "Semester 5": [
-      "Transmission and Distribution of Electrical Power",
       "Switchgear and Protection",
-      "Industrial Automation",
+      "Microprocessor and Microcontroller",
       "Utilization of Electrical Energy",
-      "Renewable Energy Sources",
+      "Electrical Estimation and Costing",
+      "Special Electrical Machines",
       "Capstone Project Planning"
     ],
     "Semester 6": [
-      "Electrical Design, Estimation and Costing",
-      "Industrial Drives and Control",
+      "Electrical Testing and Commissioning",
+      "Industrial Automation and Control",
       "Energy Conservation and Audit",
       "Industrial Training / Internship",
       "Project Work",
@@ -254,56 +301,6 @@ export const SUBJECT_MAPPING: Record<Department, Record<Semester, string[]>> = {
       "Entrepreneurship Development"
     ]
   },
-  "Mechanical Engineering": {
-    "Semester 1": [
-      "Basic Mathematics",
-      "Basic Science",
-      "Communication Skills (English)",
-      "Fundamentals of ICT",
-      "Engineering Graphics",
-      "Engineering Workshop Practice",
-      "Yoga and Meditation"
-    ],
-    "Semester 2": [
-      "Applied Mathematics",
-      "Professional Communication",
-      "Engineering Mechanics",
-      "Basic Manufacturing Processes",
-      "Engineering Materials",
-      "Social and Life Skills"
-    ],
-    "Semester 3": [
-      "Manufacturing Processes",
-      "Strength of Materials",
-      "Thermal Engineering",
-      "Machine Drawing",
-      "Computer Aided Drafting",
-      "Essence of Indian Constitution"
-    ],
-    "Semester 4": [
-      "Theory of Machines",
-      "Fluid Mechanics and Machinery",
-      "Metrology and Quality Control",
-      "Hydraulics and Pneumatics",
-      "Electrical and Electronics Engineering",
-      "Environmental Studies"
-    ],
-    "Semester 5": [
-      "Design of Machine Elements",
-      "Industrial Engineering",
-      "CNC Machines and Automation",
-      "Refrigeration and Air Conditioning",
-      "Production Planning and Control",
-      "Capstone Project Planning"
-    ],
-    "Semester 6": [
-      "Automobile Engineering",
-      "Advanced Manufacturing Processes",
-      "Industrial Training / Internship",
-      "Project Work",
-      "Entrepreneurship Development",
-      "Management"
-    ]
-  }
+  "Mechanical Engineering - Div A": mechanicalSubjects,
+  "Mechanical Engineering - Div B": mechanicalSubjects
 };
-
