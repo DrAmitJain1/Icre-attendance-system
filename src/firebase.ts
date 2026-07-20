@@ -1278,7 +1278,8 @@ export const subscribeToSystemSettings = (
 };
 
 export const subscribeToStaff = (
-  onUpdate: (staffList: Staff[]) => void
+  onUpdate: (staffList: Staff[]) => void,
+  onError?: (err: Error) => void
 ) => {
   if (IS_FIREBASE_CONFIGURED && db) {
     const collRef = fbCollection(db, "staff");

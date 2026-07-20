@@ -82,14 +82,9 @@ export const PrincipalDashboard: React.FC = () => {
       }
     );
 
-    const unsubscribeStaff = subscribeToStaff(
-      (data) => {
-        setStaffList(data);
-      },
-      (err) => {
-        console.error("Database Staff Subscription Error:", err);
-      }
-    );
+    const unsubscribeStaff = subscribeToStaff((data) => {
+      setStaffList(data);
+    });
 
     // Default month picker to current year-month
     const today = new Date();
